@@ -11,18 +11,22 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(sum)
 }
 
-pub fn fuel_part_two(input: u32) -> u32 {
-    let fuel: u32 = input / 3 - 2;
-    if fuel <= 5 {
-        fuel
-    } else {
-        fuel + fuel_part_two(fuel)
+pub fn calculate_fuel(mass: u32) -> u32 {
+    let mut remaining_mass = mass;
+    let mut total_fuel = 0;
+
+    while remaining_mass >= 9 {
+        let fuel = remaining_mass / 3 - 2;
+        total_fuel += fuel;
+        remaining_mass = fuel;
     }
+
+    total_fuel
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     let input = parse_input(input);
-    let sum = input.iter().map(|&num| fuel_part_two(num)).sum();
+    let sum = input.iter().map(|&num| calculate_fuel(num)).sum();
     Some(sum)
 }
 
