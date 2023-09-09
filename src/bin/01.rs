@@ -7,7 +7,10 @@ pub(crate) fn parse_input(input: &str) -> Vec<u32> {
 
 pub fn part_one(input: &str) -> Option<u32> {
     let input = parse_input(input);
-    let sum = input.iter().map(|&num| (num / 3 - 2)).sum();
+    let sum = input
+        .iter()
+        .map(|&num| if num >= 9 { num / 3 - 2 } else { 0 })
+        .sum();
     Some(sum)
 }
 
@@ -42,13 +45,22 @@ mod tests {
 
     #[test]
     fn test_part_one() {
-        let input = advent_of_code::read_file("examples", 1);
-        assert_eq!(part_one(&input), None);
+        assert_eq!(part_one("0"), Some(0));
+        assert_eq!(part_one("8"), Some(0));
+        assert_eq!(part_one("9"), Some(1));
+        assert_eq!(part_one("12"), Some(2));
+        assert_eq!(part_one("14"), Some(2));
+        assert_eq!(part_one("1969"), Some(654));
+        assert_eq!(part_one("100756"), Some(33583));
     }
 
     #[test]
     fn test_part_two() {
-        let input = advent_of_code::read_file("examples", 1);
-        assert_eq!(part_two(&input), None);
+        assert_eq!(part_two("0"), Some(0));
+        assert_eq!(part_two("8"), Some(0));
+        assert_eq!(part_two("9"), Some(1));
+        assert_eq!(part_two("14"), Some(2));
+        assert_eq!(part_two("1969"), Some(966));
+        assert_eq!(part_two("100756"), Some(50346));
     }
 }
