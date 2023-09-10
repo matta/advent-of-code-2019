@@ -31,25 +31,53 @@ fn is_lexicographically_le(vec1: &Vec<u8>, vec2: &Vec<u8>) -> bool {
     }
 }
 
-fn is_valid_password(vec: &[u8]) -> bool {
+fn is_valid_part_one_password(vec: &Vec<u8>) -> bool {
     if vec.len() != 6 {
         return false;
     }
-    let mut have_consecutive_digits = false;
+    let mut has_consecutive_digits = false;
     for i in 0..vec.len() - 1 {
         match vec[i].cmp(&vec[i + 1]) {
             std::cmp::Ordering::Greater => return false,
             std::cmp::Ordering::Equal => {
-                have_consecutive_digits = true;
+                has_consecutive_digits = true;
             }
             std::cmp::Ordering::Less => {}
         }
     }
 
-    have_consecutive_digits
+    has_consecutive_digits
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+fn is_valid_part_two_password(password: &Vec<u8>) -> bool {
+    if password.len() != 6 {
+        return false;
+    }
+    let mut has_two_consecutive_digits = false;
+    for i in 0..password.len() - 1 {
+        match password[i].cmp(&password[i + 1]) {
+            std::cmp::Ordering::Greater => return false,
+            std::cmp::Ordering::Equal => {
+                // Reject runs of more than two digits.
+                if i > 0 && password[i - 1] == password[i] {
+                    continue;
+                }
+                if i < password.len() - 2 && password[i + 2] == password[i] {
+                    continue;
+                }
+                has_two_consecutive_digits = true;
+            }
+            std::cmp::Ordering::Less => {}
+        }
+    }
+
+    has_two_consecutive_digits
+}
+
+pub fn compute<F>(input: &str, is_valid_password: F) -> Option<u32>
+where
+    F: Fn(&Vec<u8>) -> bool,
+{
     let (begin, end) = split_string_by_dash(input);
     let mut curr = begin;
     let mut valid_password_count = 0;
@@ -59,12 +87,15 @@ pub fn part_one(input: &str) -> Option<u32> {
         }
         lexicographically_increment_vec(&mut curr);
     }
-    println!("valid_password_count: {}", valid_password_count);
     Some(valid_password_count)
 }
 
+pub fn part_one(input: &str) -> Option<u32> {
+    compute(input, is_valid_part_one_password)
+}
+
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    compute(input, is_valid_part_two_password)
 }
 
 fn main() {
@@ -83,11 +114,18 @@ mod tests {
         assert_eq!(part_one("223450-223450"), Some(0));
         assert_eq!(part_one("123789-123789"), Some(0));
         assert_eq!(part_one("123455-123466"), Some(2));
+        assert_eq!(part_one("123444-123444"), Some(1));
     }
 
-    // #[test]
-    // fn test_part_two() {
-    //     let input = advent_of_code::read_file("examples", 4);
-    //     assert_eq!(part_two(&input), None);
-    // }
+    #[test]
+    fn test_part_two() {
+        assert_eq!(part_two("111111-111111"), Some(0));
+        assert_eq!(part_two("223450-223450"), Some(0));
+        assert_eq!(part_two("123789-123789"), Some(0));
+        assert_eq!(part_two("123455-123466"), Some(2));
+
+        assert_eq!(part_two("112233-112233"), Some(1));
+        assert_eq!(part_two("123444-123444"), Some(0));
+        assert_eq!(part_two("111122-111122"), Some(1));
+    }
 }
