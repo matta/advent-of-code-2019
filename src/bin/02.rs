@@ -7,6 +7,7 @@ enum Opcode {
     Finished,
 }
 
+#[derive(Clone)]
 struct Computer {
     pc: u32,
     data: Vec<u32>,
@@ -65,6 +66,14 @@ impl Computer {
     fn done(&self) -> bool {
         self.opcode() == Opcode::Finished
     }
+
+    fn run(&mut self, noun: u32, verb: u32) {
+        self.data[1] = noun;
+        self.data[2] = verb;
+        while !self.done() {
+            self.step();
+        }
+    }
 }
 
 fn parse_computer_string(string: &str) -> Computer {
@@ -77,15 +86,25 @@ fn parse_computer_string(string: &str) -> Computer {
 
 pub fn part_one(input: &str) -> Option<u32> {
     let mut computer = parse_computer_string(input);
-    computer.data[1] = 12;
-    computer.data[2] = 2;
-    while !computer.done() {
-        computer.step();
-    }
+    computer.run(12, 2);
     Some(computer.data[0])
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
+fn compute(computer: &Computer, noun: u32, verb: u32) -> u32 {
+    let mut computer = computer.clone();
+    computer.run(noun, verb);
+    computer.data[0]
+}
+
+pub fn part_two(input: &str) -> Option<u32> {
+    let computer = parse_computer_string(input);
+    for noun in 0..=99 {
+        for verb in 0..=99 {
+            if compute(&computer, noun, verb) == 19690720 {
+                return Some(100 * noun + verb);
+            }
+        }
+    }
     None
 }
 
@@ -134,10 +153,4 @@ mod tests {
 
         assert!(computer.done());
     }
-
-    // #[test]
-    //     fn test_part_two() {
-    //         let input = advent_of_code::read_file("examples", 2);
-    //         assert_eq!(part_two(&input), None);
-    //     }
 }
