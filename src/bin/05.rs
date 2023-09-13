@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+// #![allow(dead_code)]
 
 #[derive(PartialEq, Eq)]
 enum Opcode {
@@ -13,30 +12,16 @@ enum Opcode {
 #[derive(Clone)]
 struct Computer {
     pc: i32,
-    data: Vec<i32>,
+    memory: Vec<i32>,
     output: Vec<i32>,
     finished: bool,
 }
 
-struct Param {
-    immediate: bool,
-    value: i32,
-}
-
-fn get_slice_from_index<T>(data: &[T], index: usize) -> &[T] {
-    let mut slice = &data[index..];
-
-    if slice.len() > 4 {
-        slice = &slice[0..4];
-    }
-
-    slice
-}
 impl Computer {
     fn new() -> Computer {
         Computer {
             pc: 0,
-            data: Vec::new(),
+            memory: Vec::new(),
             output: Vec::new(),
             finished: false,
         }
@@ -44,7 +29,7 @@ impl Computer {
 
     fn get(&self, address: i32) -> i32 {
         // println!("    data[{}] -> {}", address, self.data[address as usize]);
-        self.data[address as usize]
+        self.memory[address as usize]
     }
 
     fn opcode(&self) -> Opcode {
@@ -64,7 +49,7 @@ impl Computer {
         // println!("  store: param={} value={}", param, value);
         let address = self.get(self.pc + param) as usize;
         // println!("    {} -> data[{}]", value, address);
-        self.data[address] = value
+        self.memory[address] = value
     }
 
     fn load(&self, param: i32) -> i32 {
@@ -118,7 +103,7 @@ impl Computer {
                 // println!("    value: {}", value);
                 self.output.push(value);
                 self.pc += 2;
-                if self.data[self.pc as usize] != 99 {
+                if self.memory[self.pc as usize] != 99 {
                     assert_eq!(value, 0);
                 }
             }
@@ -142,7 +127,7 @@ impl Computer {
 fn parse_computer_string(string: &str) -> Computer {
     let mut computer = Computer::new();
     for number in string.trim_end().split(',') {
-        computer.data.push(number.parse().unwrap_or_else(|e| {
+        computer.memory.push(number.parse().unwrap_or_else(|e| {
             panic!("Invalid numerical string: \"{}\" error: {}", number, e);
         }));
     }
@@ -175,7 +160,7 @@ mod tests {
         let mut computer = parse_computer_string("1,5,6,7,99,11,13,0");
         computer.step();
         assert_eq!(computer.pc, 4);
-        assert_eq!(computer.data, vec![1, 5, 6, 7, 99, 11, 13, 11 + 13]);
+        assert_eq!(computer.memory, vec![1, 5, 6, 7, 99, 11, 13, 11 + 13]);
     }
 
     #[test]
@@ -183,7 +168,7 @@ mod tests {
         let mut computer = parse_computer_string("2,5,6,7,99,11,13,10000");
         computer.step();
         assert_eq!(computer.pc, 4);
-        assert_eq!(computer.data, vec![2, 5, 6, 7, 99, 11, 13, 11 * 13]);
+        assert_eq!(computer.memory, vec![2, 5, 6, 7, 99, 11, 13, 11 * 13]);
     }
 
     #[test]
@@ -192,14 +177,14 @@ mod tests {
         computer.step();
         assert_eq!(computer.pc, 4);
         assert_eq!(
-            computer.data,
+            computer.memory,
             vec![1, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]
         );
 
         computer.step();
         assert_eq!(computer.pc, 8);
         assert_eq!(
-            computer.data,
+            computer.memory,
             vec![3500, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]
         );
 
@@ -211,17 +196,17 @@ mod tests {
         let mut computer = parse_computer_string("3,0,4,0,99");
         computer.step();
         assert_eq!(computer.pc, 2);
-        assert_eq!(computer.data, vec![1, 0, 4, 0, 99]);
+        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
         assert_eq!(computer.output, vec![]);
 
         computer.step();
         assert_eq!(computer.pc, 4);
-        assert_eq!(computer.data, vec![1, 0, 4, 0, 99]);
+        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
         assert_eq!(computer.output, vec![1]);
 
         assert!(computer.finished);
         assert_eq!(computer.pc, 4);
-        assert_eq!(computer.data, vec![1, 0, 4, 0, 99]);
+        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
         assert_eq!(computer.output, vec![1]);
     }
 }
