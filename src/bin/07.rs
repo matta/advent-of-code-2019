@@ -1,4 +1,5 @@
-// #![allow(dead_code)]
+use itertools::Itertools;
+use std::collections::VecDeque;
 
 #[derive(PartialEq, Eq)]
 enum Opcode {
@@ -17,7 +18,7 @@ enum Opcode {
 struct Computer {
     pc: i32,
     memory: Vec<i32>,
-    input: i32,
+    input: VecDeque<i32>,
     output: Vec<i32>,
     finished: bool,
     trace: bool,
@@ -28,7 +29,7 @@ impl Computer {
         Computer {
             pc: 0,
             memory: Vec::new(),
-            input: 0,
+            input: VecDeque::new(),
             output: Vec::new(),
             finished: false,
             trace: false,
@@ -129,7 +130,8 @@ impl Computer {
                 if self.trace {
                     println!("  input");
                 }
-                self.store(1, self.input);
+                let value = self.input.pop_front().unwrap();
+                self.store(1, value);
                 self.pc += 2
             }
             Opcode::Output => {
@@ -210,33 +212,54 @@ fn parse_program(text: &str) -> Computer {
             panic!("Invalid numerical string: \"{}\" error: {}", number, e);
         }));
     }
-    computer.input = 1; // the default for part one
     computer
 }
 
-fn run_program(program_text: &str, input_number: i32, trace: bool) -> Vec<i32> {
-    let mut computer = parse_program(program_text);
-    computer.input = input_number;
+fn run_computer(computer: &Computer, phase: i32, signal: i32, trace: bool) -> i32 {
+    let mut computer = computer.clone();
+    computer.input.push_back(phase);
+    computer.input.push_back(signal);
     computer.trace = trace;
-    if trace {
-        println!("run_program: {:?}", computer);
-    }
     computer.run();
-    computer.output
+    computer.output[0]
+}
+
+fn max_thruster_signal(program_text: &str, trace: bool) -> i32 {
+    let template_computer = parse_program(program_text);
+
+    let permutations = vec![0, 1, 2, 3, 4].into_iter().permutations(5);
+
+    let mut best_input_signal = i32::MIN;
+
+    for phase_setting in permutations {
+        let mut input_signal = 0;
+        for phase in phase_setting.clone() {
+            input_signal = run_computer(&template_computer, phase, input_signal, trace);
+        }
+        if input_signal >= best_input_signal {
+            best_input_signal = input_signal;
+            if trace {
+                println!(
+                    "new best input signal: {} from {:?}",
+                    input_signal, phase_setting
+                );
+            }
+        }
+    }
+    best_input_signal
 }
 
 fn part_one(input: &str) -> Option<u32> {
-    let output = run_program(input, 1, false);
-    output.last().map(|x| *x as u32)
+    let signal = max_thruster_signal(input, false);
+    Some(signal as u32)
 }
 
-fn part_two(input: &str) -> Option<u32> {
-    let output = run_program(input, 5, false);
-    output.last().map(|x| *x as u32)
+fn part_two(_input: &str) -> Option<u32> {
+    None
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 5);
+    let input = &advent_of_code::read_file("inputs", 7);
     advent_of_code::solve!(1, part_one, input);
     advent_of_code::solve!(2, part_two, input);
 }
@@ -246,134 +269,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_step_add() {
-        let mut computer = parse_program("1,5,6,7,99,11,13,0");
-        computer.step();
-        assert_eq!(computer.pc, 4);
-        assert_eq!(computer.memory, vec![1, 5, 6, 7, 99, 11, 13, 11 + 13]);
-    }
-
-    #[test]
-    fn test_step_multiply() {
-        let mut computer = parse_program("2,5,6,7,99,11,13,10000");
-        computer.step();
-        assert_eq!(computer.pc, 4);
-        assert_eq!(computer.memory, vec![2, 5, 6, 7, 99, 11, 13, 11 * 13]);
-    }
-
-    #[test]
-    fn test_part_one() {
-        let mut computer = parse_program("1,9,10,3,2,3,11,0,99,30,40,50");
-        computer.step();
-        assert_eq!(computer.pc, 4);
+    fn test_part_one_a() {
         assert_eq!(
-            computer.memory,
-            vec![1, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]
+            max_thruster_signal("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0", false),
+            43210
         );
+    }
 
-        computer.step();
-        assert_eq!(computer.pc, 8);
+    #[test]
+    fn test_part_one_b() {
         assert_eq!(
-            computer.memory,
-            vec![3500, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]
+            max_thruster_signal(
+                "3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0",
+                false
+            ),
+            54321
         );
-
-        computer.step();
-        assert!(computer.finished);
     }
 
     #[test]
-    fn test_output_example() {
-        let mut computer = parse_program("3,0,4,0,99");
-        computer.step();
-        assert_eq!(computer.pc, 2);
-        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
-        assert_eq!(computer.output, vec![]);
-
-        computer.step();
-        assert_eq!(computer.pc, 4);
-        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
-        assert_eq!(computer.output, vec![1]);
-
-        computer.step();
-        assert!(computer.finished);
-        assert_eq!(computer.pc, 4);
-        assert_eq!(computer.memory, vec![1, 0, 4, 0, 99]);
-        assert_eq!(computer.output, vec![1]);
+    fn test_part_one_c() {
+        assert_eq!(
+            max_thruster_signal(
+                "3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0",
+                false
+            ),
+            65210
+        );
     }
 
     #[test]
-    fn test_equal_position_mode() {
-        let trace = false;
-        let program_text = "3,9,8,9,10,9,4,9,99,-1,8";
-        let magic_number = 8;
-        assert_eq!(run_program(program_text, magic_number, trace), vec![1]);
-        assert_eq!(run_program(program_text, magic_number + 1, trace), vec![0]);
-    }
-
-    #[test]
-    fn test_equal_immediate_mode() {
-        let trace = false;
-        let program_text = "3,3,1108,-1,8,3,4,3,99";
-        let magic_number = 8;
-        assert_eq!(run_program(program_text, magic_number, trace), vec![1]);
-        assert_eq!(run_program(program_text, magic_number + 1, trace), vec![0]);
-    }
-
-    #[test]
-    fn test_less_than_position_mode() {
-        let trace = false;
-        let program_text = "3,9,7,9,10,9,4,9,99,-1,8";
-        let magic_number = 8;
-        let output = run_program(program_text, magic_number - 1, trace);
-        assert_eq!(output, vec![1]);
-        let output = run_program(program_text, magic_number, trace);
-        assert_eq!(output, vec![0]);
-    }
-
-    #[test]
-    fn test_less_than_immediate_mode() {
-        let trace = false;
-        let program_text = "3,3,1107,-1,8,3,4,3,99";
-        let magic_number = 8;
-        let output = run_program(program_text, magic_number - 1, trace);
-        assert_eq!(output, vec![1]);
-        let output = run_program(program_text, magic_number, trace);
-        assert_eq!(output, vec![0]);
-    }
-
-    #[test]
-    fn test_jump_position_mode() {
-        let trace = false;
-        let program_text = "3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9";
-        let magic_number = 0;
-        let output = run_program(program_text, magic_number, trace);
-        assert_eq!(output, vec![0]);
-        let output = run_program(program_text, magic_number + 1, trace);
-        assert_eq!(output, vec![1]);
-    }
-
-    #[test]
-    fn test_jump_immediate_mode() {
-        let trace = false;
-        let program_text = "3,3,1105,-1,9,1101,0,0,12,4,12,99,1";
-        let magic_number = 0;
-        let output = run_program(program_text, magic_number, trace);
-        assert_eq!(output, vec![0]);
-        let output = run_program(program_text, magic_number + 1, trace);
-        assert_eq!(output, vec![1]);
-    }
-
-    #[test]
-    fn test_larger_example() {
-        let trace = false;
-        let program_text = "3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99";
-        let magic_number = 8;
-        let output = run_program(program_text, magic_number - 1, trace);
-        assert_eq!(output, vec![999]);
-        let output = run_program(program_text, magic_number, trace);
-        assert_eq!(output, vec![1000]);
-        let output = run_program(program_text, magic_number + 1, trace);
-        assert_eq!(output, vec![1001]);
+    fn test_part_two() {
+        let input = advent_of_code::read_file("examples", 7);
+        assert_eq!(part_two(&input), None);
     }
 }
