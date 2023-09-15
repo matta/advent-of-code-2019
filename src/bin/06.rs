@@ -79,8 +79,8 @@ mod tests {
 
     #[test]
     fn test_part_one() {
-        let input = advent_of_code::read_file("examples", 6);
-        assert_eq!(part_one(&input), Some(42));
+        let input = "COM)B\nB)C\nC)D\nD)E\nE)F\nB)G\nG)H\nD)I\nE)J\nJ)K\nK)L";
+        assert_eq!(part_one(input), Some(42));
     }
 
     #[test]
