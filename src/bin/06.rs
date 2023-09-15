@@ -63,8 +63,37 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(total_orbit_count)
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
-    None
+fn primaries_from(primaries: &HashMap<String, String>, secondary: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut curr = secondary;
+    while let Some(next) = primaries.get(curr) {
+        result.push(next.clone());
+        curr = next;
+    }
+    result
+}
+
+pub fn part_two(input: &str) -> Option<u32> {
+    let orbits = parse(input).expect("invalid input");
+
+    let mut primaries = HashMap::new();
+    for (primary, secondary) in &orbits {
+        primaries.insert(secondary.clone(), primary.clone());
+    }
+
+    let you_path = primaries_from(&primaries, "YOU");
+    let san_path = primaries_from(&primaries, "SAN");
+
+    let mut common_suffix = 0;
+    for (a, b) in std::iter::zip(you_path.iter().rev(), san_path.iter().rev()) {
+        if a != b {
+            break;
+        }
+        common_suffix += 1;
+    }
+
+    let orbital_transfer = you_path.len() + san_path.len() - 2 * common_suffix;
+    Some(orbital_transfer as u32)
 }
 
 fn main() {
@@ -85,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_part_two() {
-        let input = advent_of_code::read_file("examples", 6);
-        assert_eq!(part_two(&input), None);
+        let input = "COM)B\nB)C\nC)D\nD)E\nE)F\nB)G\nG)H\nD)I\nE)J\nJ)K\nK)L\nK)YOU\nI)SAN";
+        assert_eq!(part_two(input), Some(4));
     }
 }
