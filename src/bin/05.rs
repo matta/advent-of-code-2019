@@ -37,7 +37,10 @@ impl Computer {
 
     fn get(&self, address: i32) -> i32 {
         if self.trace {
-            println!("    memory[{}] -> {}", address, self.memory[address as usize]);
+            println!(
+                "    memory[{}] -> {}",
+                address, self.memory[address as usize]
+            );
         }
         self.memory[address as usize]
     }
@@ -214,7 +217,7 @@ fn parse_program(text: &str) -> Computer {
 pub fn run_program(program_text: &str, input_number: i32, trace: bool) -> Vec<i32> {
     let mut computer = parse_program(program_text);
     computer.input = input_number;
-    computer.trace= trace;
+    computer.trace = trace;
     if trace {
         println!("run_program: {:?}", computer);
     }
@@ -305,7 +308,7 @@ mod tests {
         let program_text = "3,9,8,9,10,9,4,9,99,-1,8";
         let magic_number = 8;
         assert_eq!(run_program(program_text, magic_number, trace), vec![1]);
-        assert_eq!(run_program(program_text, magic_number+1, trace), vec![0]);
+        assert_eq!(run_program(program_text, magic_number + 1, trace), vec![0]);
     }
 
     #[test]
@@ -314,7 +317,7 @@ mod tests {
         let program_text = "3,3,1108,-1,8,3,4,3,99";
         let magic_number = 8;
         assert_eq!(run_program(program_text, magic_number, trace), vec![1]);
-        assert_eq!(run_program(program_text, magic_number+1, trace), vec![0]);
+        assert_eq!(run_program(program_text, magic_number + 1, trace), vec![0]);
     }
 
     #[test]
@@ -322,7 +325,7 @@ mod tests {
         let trace = false;
         let program_text = "3,9,7,9,10,9,4,9,99,-1,8";
         let magic_number = 8;
-        let output = run_program(program_text, magic_number-1, trace);
+        let output = run_program(program_text, magic_number - 1, trace);
         assert_eq!(output, vec![1]);
         let output = run_program(program_text, magic_number, trace);
         assert_eq!(output, vec![0]);
@@ -333,7 +336,7 @@ mod tests {
         let trace = false;
         let program_text = "3,3,1107,-1,8,3,4,3,99";
         let magic_number = 8;
-        let output = run_program(program_text, magic_number-1, trace);
+        let output = run_program(program_text, magic_number - 1, trace);
         assert_eq!(output, vec![1]);
         let output = run_program(program_text, magic_number, trace);
         assert_eq!(output, vec![0]);
@@ -346,7 +349,7 @@ mod tests {
         let magic_number = 0;
         let output = run_program(program_text, magic_number, trace);
         assert_eq!(output, vec![0]);
-        let output = run_program(program_text, magic_number+1, trace);
+        let output = run_program(program_text, magic_number + 1, trace);
         assert_eq!(output, vec![1]);
     }
 
@@ -357,7 +360,7 @@ mod tests {
         let magic_number = 0;
         let output = run_program(program_text, magic_number, trace);
         assert_eq!(output, vec![0]);
-        let output = run_program(program_text, magic_number+1, trace);
+        let output = run_program(program_text, magic_number + 1, trace);
         assert_eq!(output, vec![1]);
     }
 
