@@ -297,10 +297,4 @@ mod tests {
             65210
         );
     }
-
-    #[test]
-    fn test_part_two() {
-        let input = advent_of_code::read_file("examples", 7);
-        assert_eq!(part_two(&input), None);
-    }
 }
