@@ -1,6 +1,6 @@
 fn split_string_by_dash(string: &str) -> (Vec<u8>, Vec<u8>) {
     let (first_part, second_part) = string
-        .rsplit_once("-")
+        .rsplit_once('-')
         .unwrap_or_else(|| panic!("The string does not contain a dash"));
     (
         first_part.as_bytes().to_vec(),
