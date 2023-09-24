@@ -231,9 +231,7 @@ impl Computer {
             ParameterMode::Immediate => {
                 panic!("storing to an immediate parameter is not not implemented")
             }
-            ParameterMode::RelativePosition => {
-                self.relative_base + param.value
-            }
+            ParameterMode::RelativePosition => self.relative_base + param.value,
         };
         self.store_to_address(address, value);
     }
@@ -260,12 +258,12 @@ impl Computer {
     }
 
     fn step(&mut self) -> anyhow::Result<()> {
+        self.step += 1;
+        if self.step > 10000 {
+            bail!("Too many steps");
+        }
         if self.trace {
-            self.step += 1;
             println!("step {}: pc={}", self.step, self.pc);
-            if self.step > 10000 {
-                bail!("Too many steps");
-            }
         }
 
         let instruction = parse_instruction(self.pc, &self.memory)?;
