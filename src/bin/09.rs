@@ -259,7 +259,7 @@ impl Computer {
 
     fn step(&mut self) -> anyhow::Result<()> {
         self.step += 1;
-        if self.step > 10000 {
+        if self.step > 1_000_000 {
             bail!("Too many steps");
         }
         if self.trace {
@@ -378,15 +378,19 @@ fn run_program(program_text: &str, input_number: i64, trace: bool) -> Result<Vec
 }
 
 pub fn part_one(input: &str) -> Option<String> {
-    let trace = true;
+    let trace = false;
     let input_number = 1;
     let result = run_program(input, input_number, trace);
     let result = format!("{:?}", result);
     Some(result)
 }
 
-pub fn part_two(_input: &str) -> Option<String> {
-    None
+pub fn part_two(input: &str) -> Option<String> {
+    let trace = false;
+    let input_number = 2;
+    let result = run_program(input, input_number, trace);
+    let result = format!("{:?}", result);
+    Some(result)
 }
 
 fn main() {
