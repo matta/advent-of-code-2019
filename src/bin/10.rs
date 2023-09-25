@@ -1,4 +1,8 @@
-use std::ops::{Add, Div, Mul, Sub};
+use ordered_float::OrderedFloat;
+use std::{
+    collections::BTreeMap,
+    ops::{Add, Div, Mul, Sub},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
@@ -34,6 +38,10 @@ impl Sub for Point {
     }
 }
 
+fn point(x: i32, y: i32) -> Point {
+    Point { x, y }
+}
+
 impl Mul<i32> for Point {
     type Output = Self;
 
@@ -56,6 +64,14 @@ impl Div<i32> for Point {
     }
 }
 
+fn distance(p1: Point, p2: Point) -> f32 {
+    let dx = (p2.x - p1.x) as f32;
+    let dy = (p2.y - p1.y) as f32;
+
+    // Calculate the distance between the two points.
+    (dx * dx + dy * dy).sqrt()
+}
+
 #[derive(PartialEq, Clone)]
 struct BoolGrid {
     grid: Vec<Vec<bool>>,
@@ -76,15 +92,15 @@ impl BoolGrid {
     }
 
     fn height(&self) -> i32 {
-        return self.grid.len() as i32;
+        self.grid.len() as i32
     }
 
     fn width(&self) -> i32 {
-        return self.grid[0].len() as i32;
+        self.grid[0].len() as i32
     }
 
     fn get(&self, p: Point) -> bool {
-        return self.grid[p.y as usize][p.x as usize];
+        self.grid[p.y as usize][p.x as usize]
     }
 
     fn clear(&mut self, p: Point) {
@@ -125,13 +141,7 @@ fn parse_line(line: &str) -> Vec<bool> {
 }
 
 fn parse_grid(string: &str) -> BoolGrid {
-    BoolGrid::new(
-        string
-            .trim()
-            .split("\n")
-            .map(|line| parse_line(line))
-            .collect(),
-    )
+    BoolGrid::new(string.trim().split('\n').map(parse_line).collect())
 }
 
 fn gcd(a: i32, b: i32) -> i32 {
@@ -171,9 +181,8 @@ fn count_asteroids(center: Point, mut grid: BoolGrid) -> i32 {
     sum
 }
 
-fn part_one_counts(input: &str) -> Vec<Vec<i32>> {
+fn part_one_counts(grid: &BoolGrid) -> Vec<Vec<i32>> {
     let mut counts: Vec<Vec<i32>> = Vec::new();
-    let grid = parse_grid(input);
     for y in 0..grid.height() {
         counts.push(Vec::new());
         for x in 0..grid.width() {
@@ -190,7 +199,8 @@ fn part_one_counts(input: &str) -> Vec<Vec<i32>> {
 }
 
 fn part_one_best_count(input: &str) -> i32 {
-    let counts = part_one_counts(input);
+    let grid = parse_grid(input);
+    let counts = part_one_counts(&grid);
     let max = counts.iter().flatten().max().unwrap();
     *max
 }
@@ -199,8 +209,72 @@ pub fn part_one(input: &str) -> Option<i32> {
     Some(part_one_best_count(input))
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
+fn angle(p1: Point, p2: Point) -> f32 {
+    let vector = p2 - p1;
+    let vector = point(-vector.y, vector.x);
+
+    let radians = match (vector.y as f32).atan2(vector.x as f32) {
+        x if x < 0.0 => x + 2.0 * std::f32::consts::PI,
+        x => x,
+    };
+
+    radians * 180.0 / std::f32::consts::PI
+}
+
+fn part_two_compute(input: &str) -> Option<Point> {
+    let grid = parse_grid(input);
+    let counts = part_one_counts(&grid);
+    let mut max_count = 0;
+    let mut max_point = Point { x: 0, y: 0 };
+    for (y, row) in counts.iter().enumerate() {
+        for (x, count) in row.iter().enumerate() {
+            if *count > max_count {
+                max_count = *count;
+                max_point = Point {
+                    x: x as i32,
+                    y: y as i32,
+                };
+            }
+        }
+    }
+
+    type Distances = BTreeMap<OrderedFloat<f32>, Point>;
+    type Angles = BTreeMap<OrderedFloat<f32>, Distances>;
+
+    let mut angles: Angles = BTreeMap::new();
+
+    for y in 0..grid.height() {
+        for x in 0..grid.width() {
+            let p = Point { x, y };
+            if p == max_point || !grid.get(p) {
+                continue;
+            }
+            let angle = angle(max_point, p);
+            let distance = distance(max_point, p);
+            angles
+                .entry(OrderedFloat(angle))
+                .or_default()
+                .insert(OrderedFloat(distance), p);
+        }
+    }
+
+    let mut count = 0;
+    while count < 200 {
+        for distances in angles.values_mut() {
+            if let Some((_, point)) = distances.pop_first() {
+                count += 1;
+                if count == 200 {
+                    return Some(point);
+                }
+            }
+        }
+    }
+
     None
+}
+
+pub fn part_two(input: &str) -> Option<i32> {
+    part_two_compute(input).map(|point| point.x * 100 + point.y)
 }
 
 fn main() {
@@ -211,6 +285,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use float_eq::assert_float_eq;
+
     use super::*;
 
     #[test]
@@ -230,7 +306,7 @@ mod tests {
     #[test]
     fn test_part_one_counts() {
         assert_eq!(
-            part_one_counts(".#..#\n.....\n#####\n....#\n...##"),
+            part_one_counts(&parse_grid(".#..#\n.....\n#####\n....#\n...##")),
             vec![
                 [0, 7, 0, 0, 7],
                 [0, 0, 0, 0, 0],
@@ -271,8 +347,48 @@ mod tests {
     }
 
     #[test]
+    fn test_angle() {
+        assert_float_eq!(
+            angle(Point { x: 26, y: 28 }, Point { x: 26, y: 9 }),
+            0.0,
+            abs <= f32::EPSILON
+        );
+        assert_float_eq!(
+            angle(Point { x: 26, y: 28 }, Point { x: 5, y: 28 }),
+            270.0,
+            abs <= f32::EPSILON
+        );
+        assert_float_eq!(angle(point(0, 0), point(1, -1)), 45.0, abs <= f32::EPSILON);
+        assert_float_eq!(angle(point(1, 2), point(2, 1)), 45.0, abs <= f32::EPSILON);
+    }
+
+    #[test]
     fn test_part_two() {
-        let input = advent_of_code::read_file("examples", 10);
-        assert_eq!(part_two(&input), None);
+        let input = r#"
+.#..##.###...#######
+##.############..##.
+.#.######.########.#
+.###.#######.####.#.
+#####.##.#.##.###.##
+..#####..#.#########
+####################
+#.####....###.#.#.##
+##.#################
+#####.##.###..####..
+..######..##.#######
+####.##.####...##..#
+.#####..#.######.###
+##...#.##########...
+#.##########.#######
+.####.#.###.###.#.##
+....##.##.###..#####
+.#.#.###########.###
+#.#.#.#####.####.###
+###.##.####.##.#..##
+"#;
+        let grid = parse_grid(input);
+        assert!(!grid.get(point(12, 0)));
+        assert!(grid.get(point(12, 1)));
+        assert_eq!(part_two(input), Some(802));
     }
 }
