@@ -399,14 +399,14 @@ fn parse_program(text: &str) -> Computer {
 //     Ok(computer.output)
 // }
 
-pub fn part_one(input: &str) -> Option<usize> {
-    let mut computer = parse_program(input);
+#[derive(Copy, Clone, Debug)]
+enum Color {
+    Black,
+    White,
+}
 
-    #[derive(Copy, Clone, Debug)]
-    enum Color {
-        Black,
-        White,
-    }
+fn compute(input: &str, default_color: Color) -> HashMap<Point, Color> {
+    let mut computer = parse_program(input);
 
     #[derive(Copy, Clone, Debug)]
     enum CardinalDirection {
@@ -424,10 +424,10 @@ pub fn part_one(input: &str) -> Option<usize> {
 
     let mut position = point(0, 0);
     let mut direction = CardinalDirection::North;
-    let mut visited: HashMap<Point, Color> = HashMap::new();
+    let mut panel: HashMap<Point, Color> = HashMap::new();
 
     while !computer.finished {
-        let input_color = visited.get(&position).unwrap_or(&Color::Black);
+        let input_color = panel.get(&position).unwrap_or(&default_color);
         computer.input = match *input_color {
             Color::Black => 0,
             Color::White => 1,
@@ -458,7 +458,7 @@ pub fn part_one(input: &str) -> Option<usize> {
             _ => panic!("Invalid program output: {:?}", computer.output),
         };
 
-        match visited.entry(position) {
+        match panel.entry(position) {
             Entry::Occupied(entry) => {
                 *entry.into_mut() = output_color;
             }
@@ -487,10 +487,40 @@ pub fn part_one(input: &str) -> Option<usize> {
             }
     }
 
-    Some(visited.len())
+    panel
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
+fn print_panel(panel: &HashMap<Point, Color>, default_color: Color) {
+    let print = |color: Color| {
+        let ch = match color {
+            Color::Black => '█',
+            Color::White => '░',
+        };
+        print!("{}", ch);
+    };
+
+    let min_x = panel.keys().map(|p| p.x).min().unwrap();
+    let max_x = panel.keys().map(|p| p.x).max().unwrap();
+    let min_y = panel.keys().map(|p| p.y).min().unwrap();
+    let max_y = panel.keys().map(|p| p.y).max().unwrap();
+
+    for y in (min_y - 1)..=(max_y + 1) {
+        for x in min_x..=max_x {
+            let color = panel.get(&point(x, y)).unwrap_or(&default_color);
+            print(*color);
+        }
+        println!();
+    }
+}
+
+pub fn part_one(input: &str) -> Option<usize> {
+    let panel = compute(input, Color::Black);
+    Some(panel.len())
+}
+
+pub fn part_two(input: &str) -> Option<i32> {
+    let panel = compute(input, Color::White);
+    print_panel(&panel, Color::White);
     None
 }
 
