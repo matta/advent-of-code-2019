@@ -24,7 +24,7 @@ fn parse_input(input: &str) -> Vec<(i32, i32, i32)> {
     input.trim().split('\n').map(parse_line).collect_vec()
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct MoonAxis {
     position: i32,
     velocity: i32,
@@ -66,8 +66,8 @@ impl Moon {
     }
 }
 
-fn compute_part_one(input: &str, steps: i32) -> i32 {
-    let mut moons = parse_input(input)
+fn parse_moons(input: &str) -> Vec<Moon> {
+    parse_input(input)
         .into_iter()
         .map(|position| Moon {
             x: MoonAxis {
@@ -83,7 +83,11 @@ fn compute_part_one(input: &str, steps: i32) -> i32 {
                 velocity: 0,
             },
         })
-        .collect_vec();
+        .collect_vec()
+}
+
+fn compute_part_one(input: &str, steps: i32) -> i32 {
+    let mut moons = parse_moons(input);
 
     for _ in 0..steps {
         // println!("After {} steps:", i);
@@ -109,13 +113,75 @@ fn compute_part_one(input: &str, steps: i32) -> i32 {
     moons.iter().map(|moon| moon.total_energy()).sum()
 }
 
+fn calculate_gravity(axes: &mut [MoonAxis]) {
+    for i in 0..axes.len() - 1 {
+        for j in i + 1..axes.len() {
+            let (left_axes, right_axes) = axes.split_at_mut(j);
+            left_axes[i].apply_gravity_from(right_axes[0]);
+            right_axes[0].apply_gravity_from(left_axes[i]);
+        }
+    }
+}
+
+fn apply_velocities(axes: &mut [MoonAxis]) {
+    for axis in axes.iter_mut() {
+        axis.apply_velocity();
+    }
+}
+
+fn find_period(axes: &[MoonAxis]) -> i64 {
+    let mut period = 0;
+    let mut curr = axes.to_vec();
+    loop {
+        period += 1;
+        calculate_gravity(&mut curr);
+        apply_velocities(&mut curr);
+        if *curr == *axes {
+            break;
+        }
+    }
+    period
+}
+
+fn get_axes<F, T>(moons: &[Moon], get: F) -> Vec<T>
+where
+    F: Fn(&Moon) -> T,
+{
+    moons.iter().map(get).collect()
+}
+
+fn gcd(mut m: i64, mut n: i64) -> i64 {
+    while m != 0 {
+        let old_m = m;
+        m = n % m;
+        n = old_m;
+    }
+
+    n
+}
+
+fn lcm(a: i64, b: i64) -> i64 {
+    a * b / gcd(a, b)
+}
+
+fn compute_part_two(input: &str) -> i64 {
+    let moons = parse_moons(input);
+
+    let x_period = find_period(&get_axes(&moons, |axis| axis.x));
+    let y_period = find_period(&get_axes(&moons, |axis| axis.y));
+    let z_period = find_period(&get_axes(&moons, |axis| axis.z));
+
+    lcm(x_period, lcm(y_period, z_period))
+}
+
 pub fn part_one(input: &str) -> Option<i32> {
     Some(compute_part_one(input, 1000))
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
-    None
+pub fn part_two(_input: &str) -> Option<i64> {
+    Some(compute_part_two(_input))
 }
+
 fn main() {
     let input = &advent_of_code::read_file("inputs", 12);
     advent_of_code::solve!(1, part_one, input);
@@ -164,5 +230,15 @@ mod tests {
     #[test]
     fn test_compute_part_one_b() {
         assert_eq!(compute_part_one(EXAMPLE2, 100), 1940)
+    }
+
+    #[test]
+    fn test_compute_part_two_example_1() {
+        assert_eq!(compute_part_two(EXAMPLE1), 2772)
+    }
+
+    #[test]
+    fn test_compute_part_two_example_2() {
+        assert_eq!(compute_part_two(EXAMPLE2), 4686774924)
     }
 }
