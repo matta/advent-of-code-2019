@@ -199,26 +199,33 @@ fn parse_instruction(pc: i64, memory: &Memory) -> anyhow::Result<Instruction> {
     Ok(instr)
 }
 
-#[derive(Debug)]
-struct Computer {
+// Input and output for a computer.
+//
+// Originally I had input and output as separate traits, but ran into issues
+// with mutability and borrow checking when handling both traits on one
+// object.
+trait ComputerIO {
+    fn input(&mut self) -> i64;
+    fn output(&mut self, value: i64);
+}
+
+struct Computer<'a> {
     pc: i64,
     memory: Memory,
     relative_base: i64,
-    input: i64,
-    output: Vec<i64>,
+    io: &'a mut dyn ComputerIO,
     finished: bool,
     trace: bool,
     step: i32,
 }
 
-impl Computer {
-    fn new() -> Computer {
+impl Computer<'_> {
+    fn new<'a>(io: &'a mut dyn ComputerIO) -> Computer<'a> {
         Computer {
             pc: 0,
             memory: Memory::new(false),
             relative_base: 0,
-            input: 0,
-            output: Vec::new(),
+            io,
             finished: false,
             trace: false,
             step: 0,
@@ -283,7 +290,8 @@ impl Computer {
                 4
             }
             Instruction::Input(a) => {
-                self.store(a, self.input);
+                let value = self.io.input();
+                self.store(a, value);
                 2
             }
             Instruction::Output(a) => {
@@ -291,7 +299,7 @@ impl Computer {
                 if self.trace {
                     println!(" output: {}", value);
                 }
-                self.output.push(value);
+                self.io.output(value);
                 2
             }
             Instruction::JumpIfTrue(a, b) => {
@@ -347,33 +355,43 @@ impl Computer {
     }
 }
 
-fn parse_program(text: &str) -> Computer {
-    let mut computer = Computer::new();
+struct VectorOutputer {
+    vec: Vec<i64>,
+}
+
+impl ComputerIO for VectorOutputer {
+    fn input(&mut self) -> i64 {
+        panic!("VectorOutputer::input() not implemented");
+    }
+
+    fn output(&mut self, value: i64) {
+        self.vec.push(value);
+    }
+}
+
+fn parse_program<'a>(text: &'a str, io: &'a mut dyn ComputerIO) -> Computer<'a> {
+    let mut computer = Computer::new(io);
     for number in text.trim_end().split(',') {
         computer.memory.push(number.parse().unwrap_or_else(|e| {
             panic!("Invalid numerical string: \"{}\" error: {}", number, e);
         }));
     }
-    computer.input = 1; // the default for part one
     computer
 }
 
-fn run_program(program_text: &str, input_number: i64, trace: bool) -> Result<Vec<i64>> {
-    let mut computer = parse_program(program_text);
-    computer.input = input_number;
+fn run_program(program_text: &str, trace: bool) -> Result<Vec<i64>> {
+    let mut output = VectorOutputer { vec: Vec::new() };
+    let mut computer = parse_program(program_text, &mut output as &mut dyn ComputerIO);
     computer.trace = trace;
     computer.memory.trace = trace;
-    if trace {
-        println!("run_program: {:?}", computer);
-    }
     while !computer.finished {
         computer.step()?;
     }
-    Ok(computer.output)
+    Ok(output.vec)
 }
 
-pub fn part_one(_input: &str) -> Option<i32> {
-    let output = run_program(_input, 0, false).unwrap();
+pub fn part_one(input: &str) -> Option<i32> {
+    let output = run_program(input, false).unwrap();
 
     let mut tiles: HashMap<(i64, i64), i64> = HashMap::new();
 
@@ -398,8 +416,96 @@ pub fn part_one(_input: &str) -> Option<i32> {
     Some(block_tiles)
 }
 
-pub fn part_two(_input: &str) -> Option<u32> {
-    None
+#[derive(PartialEq, Eq)]
+enum Tile {
+    Empty,
+    Wall,
+    Block,
+    Paddle,
+    Ball,
+}
+
+impl Tile {
+    fn id_to_tile(id: i64) -> Tile {
+        match id {
+            0 => Tile::Empty,
+            1 => Tile::Wall,
+            2 => Tile::Block,
+            3 => Tile::Paddle,
+            4 => Tile::Ball,
+            _ => panic!("Invalid tile id."),
+        }
+    }
+}
+
+struct Pong {
+    output_buffer: Vec<i64>,
+    ball: Option<(i64, i64)>,
+    paddle: Option<(i64, i64)>,
+    score: Option<i64>,
+}
+
+impl Pong {
+    fn new() -> Self {
+        Pong {
+            output_buffer: Vec::new(),
+            ball: None,
+            paddle: None,
+            score: None,
+        }
+    }
+
+    fn draw(&mut self, point: (i64, i64), tile: Tile) {
+        match tile {
+            Tile::Ball => self.ball = Some(point),
+            Tile::Paddle => self.paddle = Some(point),
+            Tile::Empty | Tile::Block | Tile::Wall => {
+                // Handling these is not necessary. The problem statement
+                // says that we should record the score "after breaking all
+                // the blocks", but apparently the intcode program tracks
+                // this state for us and records a score only when it is
+                // appropriate to do so.
+            }
+        }
+    }
+}
+
+impl ComputerIO for Pong {
+    fn input(&mut self) -> i64 {
+        match (self.ball, self.paddle) {
+            (Some(ball), Some(paddle)) => {
+                // Tilt the joystick toward the ball.
+                // -1 for left, 1 for right, 0 for neutral.
+                (ball.0 - paddle.0).signum()
+            }
+            _ => panic!("invalid program state"),
+        }
+    }
+
+    fn output(&mut self, value: i64) {
+        self.output_buffer.push(value);
+        if self.output_buffer.len() == 3 {
+            let point = (self.output_buffer[0], self.output_buffer[1]);
+            let arg = self.output_buffer[2];
+            self.output_buffer.clear();
+            if point == (-1, 0) {
+                self.score = Some(arg);
+            } else {
+                let tile = Tile::id_to_tile(arg);
+                self.draw(point, tile);
+            }
+        }
+    }
+}
+
+pub fn part_two(input: &str) -> Option<i64> {
+    let mut pong = Pong::new();
+    let mut computer = parse_program(input, &mut pong as &mut dyn ComputerIO);
+    computer.memory.vec[0] = 2; // insert infinite quarters, per the problem instructions
+    while !computer.finished {
+        computer.step().unwrap();
+    }
+    pong.score
 }
 
 fn main() {
