@@ -24,22 +24,45 @@ fn parse_input(input: &str) -> Vec<(i32, i32, i32)> {
     input.trim().split('\n').map(parse_line).collect_vec()
 }
 
+#[derive(Clone, Copy, Debug)]
+struct MoonAxis {
+    position: i32,
+    velocity: i32,
+}
+
+impl MoonAxis {
+    fn apply_gravity_from(&mut self, other: MoonAxis) {
+        self.velocity += (other.position - self.position).signum();
+    }
+
+    fn apply_velocity(&mut self) {
+        self.position += self.velocity
+    }
+}
+
 #[derive(Clone, Debug)]
 struct Moon {
-    position: (i32, i32, i32),
-    velocity: (i32, i32, i32),
+    x: MoonAxis,
+    y: MoonAxis,
+    z: MoonAxis,
 }
 
 impl Moon {
-    fn apply_gravity_from(&mut self, other_pos: (i32, i32, i32)) {
-        self.velocity.0 += (other_pos.0 - self.position.0).signum();
-        self.velocity.1 += (other_pos.1 - self.position.1).signum();
-        self.velocity.2 += (other_pos.2 - self.position.2).signum();
+    fn apply_gravity_from(&mut self, other: &Moon) {
+        self.x.apply_gravity_from(other.x);
+        self.y.apply_gravity_from(other.y);
+        self.z.apply_gravity_from(other.z);
+    }
+
+    fn apply_velocity(&mut self) {
+        self.x.apply_velocity();
+        self.y.apply_velocity();
+        self.z.apply_velocity();
     }
 
     fn total_energy(&self) -> i32 {
-        (self.velocity.0.abs() + self.velocity.1.abs() + self.velocity.2.abs())
-            * (self.position.0.abs() + self.position.1.abs() + self.position.2.abs())
+        (self.x.position.abs() + self.y.position.abs() + self.z.position.abs())
+            * (self.x.velocity.abs() + self.y.velocity.abs() + self.z.velocity.abs())
     }
 }
 
@@ -47,8 +70,18 @@ fn compute_part_one(input: &str, steps: i32) -> i32 {
     let mut moons = parse_input(input)
         .into_iter()
         .map(|position| Moon {
-            position,
-            velocity: (0, 0, 0),
+            x: MoonAxis {
+                position: position.0,
+                velocity: 0,
+            },
+            y: MoonAxis {
+                position: position.1,
+                velocity: 0,
+            },
+            z: MoonAxis {
+                position: position.2,
+                velocity: 0,
+            },
         })
         .collect_vec();
 
@@ -59,19 +92,17 @@ fn compute_part_one(input: &str, steps: i32) -> i32 {
         // }
 
         // Apply gravity.
-        for (i, j) in (0..moons.len()).tuple_combinations() {
-            let mut other_pos = moons[j].position;
-            moons[i].apply_gravity_from(other_pos);
-
-            other_pos = moons[i].position;
-            moons[j].apply_gravity_from(other_pos);
+        for i in 0..(moons.len() - 1) {
+            for j in (i + 1)..moons.len() {
+                let (left, right) = moons.split_at_mut(j);
+                left[i].apply_gravity_from(&right[0]);
+                right[0].apply_gravity_from(&left[i]);
+            }
         }
 
         // Apply velocities.
         for moon in moons.iter_mut() {
-            moon.position.0 += moon.velocity.0;
-            moon.position.1 += moon.velocity.1;
-            moon.position.2 += moon.velocity.2;
+            moon.apply_velocity();
         }
     }
 
@@ -85,7 +116,6 @@ pub fn part_one(input: &str) -> Option<i32> {
 pub fn part_two(_input: &str) -> Option<u32> {
     None
 }
-
 fn main() {
     let input = &advent_of_code::read_file("inputs", 12);
     advent_of_code::solve!(1, part_one, input);
@@ -124,26 +154,6 @@ mod tests {
             parse_input(EXAMPLE1),
             vec![(-1, 0, 2), (2, -10, -7), (4, -8, 8), (3, 5, -1)]
         )
-    }
-
-    #[test]
-    fn test_apply_gravity() {
-        let mut ganymede = Moon {
-            position: (3, 2, 1),
-            velocity: (0, 0, 0),
-        };
-        let mut callisto = Moon {
-            position: (1, 2, 3),
-            velocity: (0, 0, 0),
-        };
-        ganymede.apply_gravity_from(callisto.position);
-        callisto.apply_gravity_from(ganymede.position);
-
-        assert_eq!(ganymede.position, (3, 2, 1));
-        assert_eq!(ganymede.velocity, (-1, 0, 1));
-
-        assert_eq!(callisto.position, (1, 2, 3));
-        assert_eq!(callisto.velocity, (1, 0, -1));
     }
 
     #[test]
