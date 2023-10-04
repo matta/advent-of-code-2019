@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, error::Error};
 
 #[derive(Debug, PartialEq)]
 struct Chemical {
-    name: String,
+    name: u32,
     amount: u32,
 }
 
@@ -31,39 +31,66 @@ impl fmt::Display for Reaction {
     }
 }
 
-fn parse_chemical_quantity(input: &str) -> Result<Chemical, Box<dyn Error>> {
+struct NameTable {
+    names_to_index: HashMap<String, u32>,
+}
+
+const NAME_TABLE_FUEL: u32 = 0;
+const NAME_TABLE_ORE: u32 = 1;
+
+impl NameTable {
+    fn new() -> Self {
+        let mut table = Self {
+            names_to_index: HashMap::new(),
+        };
+        table.insert("FUEL".to_string());
+        table.insert("ORE".to_string());
+        table
+    }
+
+    fn insert(&mut self, name: String) -> u32 {
+        let len = self.names_to_index.len();
+        *self
+            .names_to_index
+            .entry(name)
+            .or_insert_with(|| len as u32)
+    }
+}
+
+fn parse_chemical_quantity(input: &str, names: &mut NameTable) -> Result<Chemical, Box<dyn Error>> {
     let (quantity_str, chemical) = input
         .trim()
         .split_once(' ')
         .ok_or("bad chemical quantity in input")?;
     Ok(Chemical {
-        name: chemical.to_string(),
+        name: names.insert(chemical.to_string()),
         amount: quantity_str.parse::<u32>()?,
     })
 }
 
-fn parse_chemical_reaction(input: &str) -> Result<Reaction, Box<dyn Error>> {
+fn parse_chemical_reaction(input: &str, names: &mut NameTable) -> Result<Reaction, Box<dyn Error>> {
     let (inputs_str, output_str) = input
         .trim()
         .split_once("=>")
         .ok_or("delimiter \"=>\" not found in line")?;
     let mut inputs = Vec::new();
     for input in inputs_str.split(',') {
-        let chemical_quantity = parse_chemical_quantity(input)?;
+        let chemical_quantity = parse_chemical_quantity(input, names)?;
         inputs.push(chemical_quantity);
     }
     Ok(Reaction {
         inputs,
-        output: parse_chemical_quantity(output_str)?,
+        output: parse_chemical_quantity(output_str, names)?,
     })
 }
 
-type ReactionHash = HashMap<String, Reaction>;
+type ReactionHash = HashMap<u32, Reaction>;
 
 fn parse_input(input: &str) -> Result<ReactionHash, Box<dyn Error>> {
+    let mut names = NameTable::new();
     let mut reactions = HashMap::new();
     for line in input.trim().lines() {
-        let reaction = parse_chemical_reaction(line)?;
+        let reaction = parse_chemical_reaction(line, &mut names)?;
         reactions.insert(reaction.output.name.clone(), reaction);
     }
     Ok(reactions)
@@ -81,15 +108,15 @@ fn div_ceil64(x: u64, y: u64) -> u64 {
 
 fn ore_required_recur(
     reactions: &ReactionHash,
-    surplus: &mut HashMap<String, u64>,
-    target: &String,
+    surplus: &mut HashMap<u32, u64>,
+    target: u32,
     target_amount: u64,
 ) -> u64 {
-    if target == "ORE" {
+    if target == NAME_TABLE_ORE {
         return target_amount;
     }
     let target_amount = {
-        let surplus_amount = surplus.entry(target.clone()).or_insert(0);
+        let surplus_amount = surplus.entry(target).or_insert(0);
         if target_amount <= *surplus_amount {
             *surplus_amount -= target_amount;
             return 0;
@@ -99,12 +126,12 @@ fn ore_required_recur(
         new_target
     };
 
-    let reaction = reactions.get(target).unwrap();
+    let reaction = reactions.get(&target).unwrap();
     let copies = div_ceil64(target_amount, reaction.output.amount as u64);
     let mut ore = 0;
     for chem in reaction.inputs.iter() {
         let input_amount = copies * chem.amount as u64;
-        ore += ore_required_recur(reactions, surplus, &chem.name, input_amount);
+        ore += ore_required_recur(reactions, surplus, chem.name, input_amount);
     }
 
     let surplus_amount = surplus.entry(target.clone()).or_insert(0);
@@ -113,7 +140,7 @@ fn ore_required_recur(
     ore
 }
 
-fn ore_required(reactions: &ReactionHash, target: &String, target_amount: u64) -> u64 {
+fn ore_required(reactions: &ReactionHash, target: u32, target_amount: u64) -> u64 {
     let mut surplus = HashMap::new();
     let ore = ore_required_recur(reactions, &mut surplus, target, target_amount);
     ore
@@ -121,13 +148,13 @@ fn ore_required(reactions: &ReactionHash, target: &String, target_amount: u64) -
 
 pub fn part_one(input: &str) -> Option<u64> {
     let reactions = parse_input(input).expect("bad input");
-    Some(ore_required(&reactions, &"FUEL".to_string(), 1))
+    Some(ore_required(&reactions, NAME_TABLE_FUEL, 1))
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
     let reactions = parse_input(input).expect("bad input");
 
-    let compute = |target_amount| ore_required(&reactions, &"FUEL".to_string(), target_amount);
+    let compute = |target_amount| ore_required(&reactions, NAME_TABLE_FUEL, target_amount);
 
     let target: u64 = 1_000_000_000_000;
     let mut high: u64 = 0;
@@ -160,17 +187,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_chemical_quantity() {
-        assert_eq!(
-            parse_chemical_quantity("1 FUEL").unwrap(),
-            Chemical {
-                name: "FUEL".to_string(),
-                amount: 1
-            }
-        );
-    }
 
     #[test]
     fn test_part_one_trivial() {
