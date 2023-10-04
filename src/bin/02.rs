@@ -22,7 +22,6 @@ impl Computer {
     }
 
     fn get(&self, address: u32) -> u32 {
-        // println!("data[{}] -> {}", address, self.data[address as usize]);
         self.data[address as usize]
     }
 
@@ -43,12 +42,10 @@ impl Computer {
 
     fn opput(&mut self, value: u32) {
         let address = self.get(self.pc + 3) as usize;
-        // println!("data[{}] <- {}", address, value);
         self.data[address] = value
     }
 
     fn step(&mut self) {
-        // println!("step: pc={}", self.pc);
         match self.opcode() {
             Opcode::Add => {
                 self.opput(self.opderef(1) + self.opderef(2));
