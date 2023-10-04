@@ -40,12 +40,10 @@ const NAME_TABLE_ORE: u32 = 1;
 
 impl NameTable {
     fn new() -> Self {
-        let mut table = Self {
-            names_to_index: HashMap::new(),
-        };
-        table.insert("FUEL".to_string());
-        table.insert("ORE".to_string());
-        table
+        let mut names_to_index = HashMap::new();
+        names_to_index.insert("FUEL".to_string(), NAME_TABLE_FUEL);
+        names_to_index.insert("ORE".to_string(), NAME_TABLE_ORE);
+        Self { names_to_index }
     }
 
     fn insert(&mut self, name: String) -> u32 {
@@ -84,14 +82,24 @@ fn parse_chemical_reaction(input: &str, names: &mut NameTable) -> Result<Reactio
     })
 }
 
-type ReactionHash = HashMap<u32, Reaction>;
-
-fn parse_input(input: &str) -> Result<ReactionHash, Box<dyn Error>> {
+fn parse_input(input: &str) -> Result<Vec<Option<Reaction>>, Box<dyn Error>> {
     let mut names = NameTable::new();
-    let mut reactions = HashMap::new();
+    let mut reactions = Vec::new();
     for line in input.trim().lines() {
         let reaction = parse_chemical_reaction(line, &mut names)?;
-        reactions.insert(reaction.output.name.clone(), reaction);
+        let index = reaction.output.name as usize;
+        match reactions.get_mut(index) {
+            Some(existing_reaction) => {
+                *existing_reaction = Some(reaction);
+            }
+            None => {
+                while index > reactions.len() {
+                    reactions.push(None);
+                }
+                assert_eq!(index, reactions.len());
+                reactions.push(Some(reaction));
+            }
+        }
     }
     Ok(reactions)
 }
@@ -107,16 +115,17 @@ fn div_ceil64(x: u64, y: u64) -> u64 {
 }
 
 fn ore_required_recur(
-    reactions: &ReactionHash,
-    surplus: &mut HashMap<u32, u64>,
+    reactions: &Vec<Option<Reaction>>,
+    surplus: &mut Vec<u64>,
     target: u32,
     target_amount: u64,
 ) -> u64 {
     if target == NAME_TABLE_ORE {
         return target_amount;
     }
-    let target_amount = {
-        let surplus_amount = surplus.entry(target).or_insert(0);
+
+    let needed_target_amount = {
+        let surplus_amount = &mut surplus[target as usize];
         if target_amount <= *surplus_amount {
             *surplus_amount -= target_amount;
             return 0;
@@ -126,29 +135,30 @@ fn ore_required_recur(
         new_target
     };
 
-    let reaction = reactions.get(&target).unwrap();
-    let copies = div_ceil64(target_amount, reaction.output.amount as u64);
+    let reaction = &reactions[target as usize].as_ref().unwrap();
+    let copies = div_ceil64(needed_target_amount, reaction.output.amount as u64);
     let mut ore = 0;
     for chem in reaction.inputs.iter() {
         let input_amount = copies * chem.amount as u64;
         ore += ore_required_recur(reactions, surplus, chem.name, input_amount);
     }
 
-    let surplus_amount = surplus.entry(target.clone()).or_insert(0);
-    *surplus_amount += reaction.output.amount as u64 * copies - target_amount;
+    let produced = copies * reaction.output.amount as u64;
+    surplus[target as usize] += produced - needed_target_amount;
 
     ore
 }
 
-fn ore_required(reactions: &ReactionHash, target: u32, target_amount: u64) -> u64 {
-    let mut surplus = HashMap::new();
-    let ore = ore_required_recur(reactions, &mut surplus, target, target_amount);
-    ore
+fn ore_required(reactions: &Vec<Option<Reaction>>, target: u32, target_amount: u64) -> u64 {
+    let mut surplus = (0..reactions.len()).map(|_| 0).collect();
+    ore_required_recur(reactions, &mut surplus, target, target_amount)
 }
 
 pub fn part_one(input: &str) -> Option<u64> {
     let reactions = parse_input(input).expect("bad input");
-    Some(ore_required(&reactions, NAME_TABLE_FUEL, 1))
+    let ore = ore_required(&reactions, NAME_TABLE_FUEL, 1);
+
+    Some(ore)
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
@@ -264,32 +274,14 @@ mod tests {
     }
 
     #[test]
-    fn test_part_one_larger3() {
-        let input = r#"
-            171 ORE => 8 CNZTR
-            7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL
-            114 ORE => 4 BHXH
-            14 VRPVC => 6 BMBT
-            6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL
-            6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT
-            15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW
-            13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW
-            5 BMBT => 4 WPTQ
-            189 ORE => 9 KTJDG
-            1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP
-            12 VRPVC, 27 CNZTR => 2 XDBXC
-            15 KTJDG, 12 BHXH => 5 XCVML
-            3 BHXH, 2 VRPVC => 7 MZWV
-            121 ORE => 7 VRPVC
-            7 XCVML => 6 RJRHP
-            5 BHXH, 4 VRPVC => 5 LTCX
-        "#;
-        assert_eq!(part_one(input), Some(2210736));
+    fn test_part_one_example() {
+        let input = advent_of_code::read_file("examples", 14);
+        assert_eq!(part_one(&input), Some(2210736));
     }
 
     #[test]
-    fn test_part_two() {
+    fn test_part_two_example() {
         let input = advent_of_code::read_file("examples", 14);
-        assert_eq!(part_two(&input), None);
+        assert_eq!(part_two(&input), Some(460664));
     }
 }
