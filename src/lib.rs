@@ -96,39 +96,6 @@ macro_rules! assert_approx_eq {
     }};
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_exec_time() {
-        assert_approx_eq!(
-            parse_exec_time(&format!(
-                "🎄 Part 1 🎄\n0 (elapsed: 74.13ns){}\n🎄 Part 2 🎄\n0 (elapsed: 50.00ns){}",
-                ANSI_RESET, ANSI_RESET
-            )),
-            0_f64
-        );
-
-        assert_approx_eq!(
-            parse_exec_time("🎄 Part 1 🎄\n0 (elapsed: 755µs)\n🎄 Part 2 🎄\n0 (elapsed: 700µs)"),
-            1.455_f64
-        );
-
-        assert_approx_eq!(
-            parse_exec_time("🎄 Part 1 🎄\n0 (elapsed: 70µs)\n🎄 Part 2 🎄\n0 (elapsed: 1.45ms)"),
-            1.52_f64
-        );
-
-        assert_approx_eq!(
-            parse_exec_time(
-                "🎄 Part 1 🎄\n0 (elapsed: 10.3s)\n🎄 Part 2 🎄\n0 (elapsed: 100.50ms)"
-            ),
-            10400.50_f64
-        );
-    }
-}
-
 pub mod aoc_cli {
     use std::{
         fmt::Display,
@@ -235,5 +202,38 @@ pub mod aoc_cli {
             .stderr(Stdio::inherit())
             .output()
             .map_err(|_| AocCliError::CommandNotCallable)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_exec_time() {
+        assert_approx_eq!(
+            parse_exec_time(&format!(
+                "🎄 Part 1 🎄\n0 (elapsed: 74.13ns){}\n🎄 Part 2 🎄\n0 (elapsed: 50.00ns){}",
+                ANSI_RESET, ANSI_RESET
+            )),
+            0_f64
+        );
+
+        assert_approx_eq!(
+            parse_exec_time("🎄 Part 1 🎄\n0 (elapsed: 755µs)\n🎄 Part 2 🎄\n0 (elapsed: 700µs)"),
+            1.455_f64
+        );
+
+        assert_approx_eq!(
+            parse_exec_time("🎄 Part 1 🎄\n0 (elapsed: 70µs)\n🎄 Part 2 🎄\n0 (elapsed: 1.45ms)"),
+            1.52_f64
+        );
+
+        assert_approx_eq!(
+            parse_exec_time(
+                "🎄 Part 1 🎄\n0 (elapsed: 10.3s)\n🎄 Part 2 🎄\n0 (elapsed: 100.50ms)"
+            ),
+            10400.50_f64
+        );
     }
 }
