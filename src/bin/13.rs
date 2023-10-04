@@ -220,7 +220,7 @@ struct Computer<'a> {
 }
 
 impl Computer<'_> {
-    fn new<'a>(io: &'a mut dyn ComputerIO) -> Computer<'a> {
+    fn new(io: &mut dyn ComputerIO) -> Computer<'_> {
         Computer {
             pc: 0,
             memory: Memory::new(false),
