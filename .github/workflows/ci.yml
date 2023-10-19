@@ -10,14 +10,14 @@ jobs:
         runs-on: ubuntu-latest
         name: Check
         steps:
-            - uses: actions/checkout@v3
+            - uses: actions/checkout@v4
             - name: cargo check
               run: cargo check
     test:
         runs-on: ubuntu-latest
         name: Test
         steps:
-            - uses: actions/checkout@v3
+            - uses: actions/checkout@v4
             - name: cargo test
               run: cargo test
     # uncomment to enable clippy lints
