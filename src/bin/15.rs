@@ -65,8 +65,7 @@ impl From<Command> for i64 {
 }
 
 fn move_droid(computer: &mut intcode::Computer, command: Command) -> Terrain {
-    let mut input: VecDeque<i64> = VecDeque::new();
-    input.push_back(command.into());
+    let mut input: VecDeque<i64> = [command.into()].iter().copied().collect();
     if let Some(value) = computer.run(&mut input) {
         return value.try_into().unwrap();
     }
