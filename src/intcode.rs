@@ -1,5 +1,7 @@
 // Example import from this file: `use advent_of_code::intcode::Foo;`.
 
+use std::collections::VecDeque;
+
 use anyhow::bail;
 use anyhow::Result;
 
@@ -272,20 +274,34 @@ impl Computer {
         }
     }
 
-    pub fn step(&mut self, io: &mut dyn ComputerIO) -> anyhow::Result<()> {
+    pub fn poke(&mut self, index: i64, value: i64) {
+        self.memory.set(index, value);
+    }
+
+    pub fn run(&mut self, input: &mut VecDeque<i64>) -> Option<i64> {
+        let mut output = None;
+        while !self.finished && output.is_none() {
+            output = self.step(input);
+        }
+        output
+    }
+
+    pub fn step(&mut self, input: &mut VecDeque<i64>) -> Option<i64> {
         self.step += 1;
-        if self.step > 1_000_000 {
-            bail!("Too many steps");
+        if self.step > 100_000_000 {
+            panic!("Too many steps");
         }
         if self.trace {
             println!("step {}: pc={}", self.step, self.pc);
         }
 
-        let instruction = parse_instruction(self.pc, &self.memory)?;
+        let instruction =
+            parse_instruction(self.pc, &self.memory).expect("parse instruction failed");
         if self.trace {
             println!("  instruction: {:?}", instruction);
         }
 
+        let mut output = None;
         self.pc += match instruction {
             Instruction::Add(a, b, c) => {
                 let value = self.load(a) + self.load(b);
@@ -298,7 +314,7 @@ impl Computer {
                 4
             }
             Instruction::Input(a) => {
-                let value = io.input();
+                let value = input.pop_front().expect("input exhausted");
                 self.store(a, value);
                 2
             }
@@ -307,7 +323,7 @@ impl Computer {
                 if self.trace {
                     println!(" output: {}", value);
                 }
-                io.output(value);
+                output = Some(value);
                 2
             }
             Instruction::JumpIfTrue(a, b) => {
@@ -359,6 +375,6 @@ impl Computer {
                 0
             }
         };
-        Ok(())
+        output
     }
 }

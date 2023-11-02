@@ -65,16 +65,12 @@ impl From<Command> for i64 {
 }
 
 fn move_droid(computer: &mut intcode::Computer, command: Command) -> Terrain {
-    let mut mover = Mover {
-        input: Some(command.into()),
-        output: None,
-    };
-    loop {
-        if let Some(value) = mover.output.take() {
-            return value.try_into().unwrap();
-        }
-        computer.step(&mut mover).expect("step unexpectedly failed");
+    let mut input: VecDeque<i64> = VecDeque::new();
+    input.push_back(command.into());
+    if let Some(value) = computer.run(&mut input) {
+        return value.try_into().unwrap();
     }
+    panic!("computer finished without any output")
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]

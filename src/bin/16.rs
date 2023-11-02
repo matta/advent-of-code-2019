@@ -23,8 +23,7 @@ fn fft_phase(phase: u32, digits: &Vec<u8>) -> Vec<u8> {
             }
             let pattern = base_pattern
                 .iter()
-                .map(|p| iter::repeat(*p).take(index))
-                .flatten()
+                .flat_map(|p| iter::repeat(*p).take(index))
                 .cycle()
                 .skip(1);
 
