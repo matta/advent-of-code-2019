@@ -225,20 +225,22 @@ fn run_program(program_text: &str, input_number: i32, trace: bool) -> Vec<i32> {
     computer.output
 }
 
-fn part_one(input: &str) -> Option<u32> {
+fn part_one(input: &str) -> u32 {
     let output = run_program(input, 1, false);
-    output.last().map(|x| *x as u32)
+    output.last().map(|x| *x as u32).unwrap()
 }
 
-fn part_two(input: &str) -> Option<u32> {
+fn part_two(input: &str) -> u32 {
     let output = run_program(input, 5, false);
-    output.last().map(|x| *x as u32)
+    output.last().map(|x| *x as u32).unwrap()
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 5);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/05.txt").trim();
+    let one = part_one(input);
+    let two = part_two(input);
+    assert_eq!(one, 13210611);
+    assert_eq!(two, 584126);
 }
 
 #[cfg(test)]
@@ -376,4 +378,10 @@ mod tests {
         let output = run_program(program_text, magic_number + 1, trace);
         assert_eq!(output, vec![1001]);
     }
+
+    #[test]
+    fn test_main() {
+        main();
+    }
+
 }

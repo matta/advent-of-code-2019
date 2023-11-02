@@ -57,7 +57,7 @@ impl Point {
     }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+fn part_one(input: &str) -> u32 {
     let wires = parse_input(input);
 
     type Visited = [bool; 2];
@@ -98,10 +98,10 @@ pub fn part_one(input: &str) -> Option<u32> {
         }
     });
 
-    Some(central_point.unwrap().manhattan_distance_from_zero())
+    central_point.unwrap().manhattan_distance_from_zero()
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+fn part_two(input: &str) -> u32 {
     let wires = parse_input(input);
 
     type Visited = [u32; 2];
@@ -140,13 +140,15 @@ pub fn part_two(input: &str) -> Option<u32> {
         }
     }
 
-    fewest_combined_steps
+    fewest_combined_steps.unwrap()
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 3);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/03.txt").trim();
+    let one = part_one(input);
+    let two = part_two(input);
+    assert_eq!(one, 1225);
+    assert_eq!(two, 107036);
 }
 
 #[cfg(test)]
@@ -157,11 +159,11 @@ mod tests {
     fn test_part_one() {
         assert_eq!(
             part_one("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83\n"),
-            Some(159)
+            159
         );
         assert_eq!(
             part_one("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7\n"),
-            Some(135)
+            135
         );
     }
 
@@ -169,11 +171,16 @@ mod tests {
     fn test_part_two() {
         assert_eq!(
             part_two("R75,D30,R83,U83,L12,D49,R71,U7,L72\nU62,R66,U55,R34,D71,R55,D58,R83\n"),
-            Some(610)
+            610
         );
         assert_eq!(
             part_two("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51\nU98,R91,D20,R16,D67,R40,U7,R15,U6,R7\n"),
-            Some(410)
+            410
         );
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }

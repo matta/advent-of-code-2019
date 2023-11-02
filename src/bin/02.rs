@@ -81,10 +81,10 @@ fn parse_computer_string(string: &str) -> Computer {
     computer
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+fn part_one(input: &str) -> u32 {
     let mut computer = parse_computer_string(input);
     computer.run(12, 2);
-    Some(computer.data[0])
+    computer.data[0]
 }
 
 fn compute(computer: &Computer, noun: u32, verb: u32) -> u32 {
@@ -93,22 +93,24 @@ fn compute(computer: &Computer, noun: u32, verb: u32) -> u32 {
     computer.data[0]
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+fn part_two(input: &str) -> u32 {
     let computer = parse_computer_string(input);
     for noun in 0..=99 {
         for verb in 0..=99 {
             if compute(&computer, noun, verb) == 19690720 {
-                return Some(100 * noun + verb);
+                return 100 * noun + verb;
             }
         }
     }
-    None
+    panic!("bug");
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 2);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/02.txt").trim();
+    let one = part_one(input);
+    let two = part_two(input);
+    assert_eq!(one, 3895705);
+    assert_eq!(two, 6417);
 }
 
 #[cfg(test)]
@@ -150,4 +152,10 @@ mod tests {
 
         assert!(computer.done());
     }
+
+    #[test]
+    fn test_main() {
+        main();
+    }
+
 }

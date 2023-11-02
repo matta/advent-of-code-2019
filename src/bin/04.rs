@@ -90,18 +90,21 @@ where
     Some(valid_password_count)
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
-    compute(input, is_valid_part_one_password)
+pub fn part_one(input: &str) -> u32 {
+    compute(input, is_valid_part_one_password).unwrap()
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
-    compute(input, is_valid_part_two_password)
+pub fn part_two(input: &str) -> u32 {
+    compute(input, is_valid_part_two_password).unwrap()
 }
+
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 4);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/04.txt").trim();
+    let one = part_one(input);
+    let two = part_two(input);
+    assert_eq!(one, 931);
+    assert_eq!(two, 609);
 }
 
 #[cfg(test)]
@@ -110,22 +113,27 @@ mod tests {
 
     #[test]
     fn test_part_one() {
-        assert_eq!(part_one("111111-111111"), Some(1));
-        assert_eq!(part_one("223450-223450"), Some(0));
-        assert_eq!(part_one("123789-123789"), Some(0));
-        assert_eq!(part_one("123455-123466"), Some(2));
-        assert_eq!(part_one("123444-123444"), Some(1));
+        assert_eq!(part_one("111111-111111"), 1);
+        assert_eq!(part_one("223450-223450"), 0);
+        assert_eq!(part_one("123789-123789"), 0);
+        assert_eq!(part_one("123455-123466"), 2);
+        assert_eq!(part_one("123444-123444"), 1);
     }
 
     #[test]
     fn test_part_two() {
-        assert_eq!(part_two("111111-111111"), Some(0));
-        assert_eq!(part_two("223450-223450"), Some(0));
-        assert_eq!(part_two("123789-123789"), Some(0));
-        assert_eq!(part_two("123455-123466"), Some(2));
+        assert_eq!(part_two("111111-111111"), 0);
+        assert_eq!(part_two("223450-223450"), 0);
+        assert_eq!(part_two("123789-123789"), 0);
+        assert_eq!(part_two("123455-123466"), 2);
 
-        assert_eq!(part_two("112233-112233"), Some(1));
-        assert_eq!(part_two("123444-123444"), Some(0));
-        assert_eq!(part_two("111122-111122"), Some(1));
+        assert_eq!(part_two("112233-112233"), 1);
+        assert_eq!(part_two("123444-123444"), 0);
+        assert_eq!(part_two("111122-111122"), 1);
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }

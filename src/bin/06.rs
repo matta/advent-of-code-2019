@@ -19,7 +19,7 @@ fn parse(input: &str) -> Result<Vec<(String, String)>, io::Error> {
     Ok(result)
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+fn part_one(input: &str) -> u32 {
     let orbits = parse(input).expect("invalid input");
 
     // direct_orbits is a hash map from primary planets to the secondary planets
@@ -60,7 +60,7 @@ pub fn part_one(input: &str) -> Option<u32> {
         }
     }
 
-    Some(total_orbit_count)
+    total_orbit_count
 }
 
 fn primaries_from(primaries: &HashMap<String, String>, secondary: &str) -> Vec<String> {
@@ -73,7 +73,7 @@ fn primaries_from(primaries: &HashMap<String, String>, secondary: &str) -> Vec<S
     result
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+fn part_two(input: &str) -> u32 {
     let orbits = parse(input).expect("invalid input");
 
     let mut primaries = HashMap::new();
@@ -93,13 +93,15 @@ pub fn part_two(input: &str) -> Option<u32> {
     }
 
     let orbital_transfer = you_path.len() + san_path.len() - 2 * common_suffix;
-    Some(orbital_transfer as u32)
+    orbital_transfer as u32
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 6);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/06.txt").trim();
+    let one = part_one(input);
+    let two = part_two(input);
+    assert_eq!(one, 333679);
+    assert_eq!(two, 370);
 }
 
 #[cfg(test)]
@@ -109,12 +111,17 @@ mod tests {
     #[test]
     fn test_part_one() {
         let input = "COM)B\nB)C\nC)D\nD)E\nE)F\nB)G\nG)H\nD)I\nE)J\nJ)K\nK)L";
-        assert_eq!(part_one(input), Some(42));
+        assert_eq!(part_one(input), 42);
     }
 
     #[test]
     fn test_part_two() {
         let input = "COM)B\nB)C\nC)D\nD)E\nE)F\nB)G\nG)H\nD)I\nE)J\nJ)K\nK)L\nK)YOU\nI)SAN";
-        assert_eq!(part_two(input), Some(4));
+        assert_eq!(part_two(input), 4);
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }
