@@ -17,17 +17,42 @@ fn max_thruster_signal(program_text: &str, trace: bool) -> i64 {
 
     let mut best_input_signal = i64::MIN;
 
-    for phase_setting in permutations {
+    for phase_settings in permutations {
         let mut input_signal = 0;
-        for phase in phase_setting.clone() {
-            input_signal = run_computer(&template_computer, phase, input_signal, trace);
+        for phase in &phase_settings {
+            input_signal = run_computer(&template_computer, *phase, input_signal, trace);
         }
         if input_signal >= best_input_signal {
             best_input_signal = input_signal;
             if trace {
                 println!(
                     "new best input signal: {} from {:?}",
-                    input_signal, phase_setting
+                    input_signal, phase_settings
+                );
+            }
+        }
+    }
+    best_input_signal
+}
+
+fn max_thruster_signal2(program_text: &str, trace: bool) -> i64 {
+    let template_computer = Computer::parse(program_text);
+
+    let permutations = vec![0, 1, 2, 3, 4].into_iter().permutations(5);
+
+    let mut best_input_signal = i64::MIN;
+
+    for phase_settings in permutations {
+        let mut input_signal = 0;
+        for phase in &phase_settings {
+            input_signal = run_computer(&template_computer, *phase, input_signal, trace);
+        }
+        if input_signal >= best_input_signal {
+            best_input_signal = input_signal;
+            if trace {
+                println!(
+                    "new best input signal: {} from {:?}",
+                    input_signal, phase_settings
                 );
             }
         }
@@ -40,16 +65,17 @@ fn part_one(input: &str) -> u32 {
     signal.try_into().unwrap()
 }
 
-// fn part_two(_input: &str) -> u32 {
-//     0
-// }
+fn part_two(input: &str) -> u32 {
+    let signal = max_thruster_signal2(input, false);
+    signal.try_into().unwrap()
+}
 
 fn main() {
     let input = include_str!("../inputs/07.txt").trim();
     let one = part_one(input);
     assert_eq!(one, 21760);
-    // let two = part_two(input);
-    // assert_eq!(two, 666);
+    let _two = part_two(input);
+    todo!("finish part two");
 }
 
 #[cfg(test)]
@@ -84,6 +110,17 @@ mod tests {
             ),
             65210
         );
+    }
+
+    #[test]
+    fn test_part_two_a() {
+        assert_eq!(
+            max_thruster_signal2(
+                "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5",
+                false
+            ),
+            139629729
+        )
     }
 
     #[test]
