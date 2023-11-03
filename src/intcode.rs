@@ -76,7 +76,7 @@ enum Instruction {
     AdjustRelativeBase(Parameter),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Memory {
     vec: Vec<i64>,
     trace: bool,
@@ -211,6 +211,7 @@ pub trait ComputerIO {
     fn output(&mut self, value: i64);
 }
 
+#[derive(Clone)]
 pub struct Computer {
     pc: i64,
     memory: Memory,
