@@ -1,6 +1,6 @@
+use advent_of_code::intcode::Computer;
 use itertools::Itertools;
 use std::collections::VecDeque;
-use advent_of_code::intcode::Computer;
 
 fn run_computer(computer: &Computer, phase: i64, signal: i64, _trace: bool) -> i64 {
     let mut computer = computer.clone();
@@ -35,25 +35,43 @@ fn max_thruster_signal(program_text: &str, trace: bool) -> i64 {
     best_input_signal
 }
 
-fn max_thruster_signal2(program_text: &str, trace: bool) -> i64 {
+fn max_thruster_signal2(program_text: &str) -> i64 {
     let template_computer = Computer::parse(program_text);
 
-    let permutations = vec![0, 1, 2, 3, 4].into_iter().permutations(5);
+    let permutations = vec![5, 6, 7, 8, 9].into_iter().permutations(5);
 
     let mut best_input_signal = i64::MIN;
 
+    struct ComputerInput {
+        computer: Computer,
+        input: VecDeque<i64>,
+    }
+
     for phase_settings in permutations {
+        let mut computers: Vec<ComputerInput> = phase_settings
+            .iter()
+            .map(|phase| {
+                let input = VecDeque::from(vec![*phase]);
+                let computer = template_computer.clone();
+                ComputerInput { computer, input }
+            })
+            .collect();
+
         let mut input_signal = 0;
-        for phase in &phase_settings {
-            input_signal = run_computer(&template_computer, *phase, input_signal, trace);
-        }
-        if input_signal >= best_input_signal {
-            best_input_signal = input_signal;
-            if trace {
-                println!(
-                    "new best input signal: {} from {:?}",
-                    input_signal, phase_settings
-                );
+        let mut finished = false;
+        while !finished {
+            for c in &mut computers {
+                c.input.push_back(input_signal);
+                if let Some(output) = c.computer.run(&mut c.input) {
+                    input_signal = output;
+                } else {
+                    finished = true;
+                    if input_signal >= best_input_signal {
+                        best_input_signal = input_signal;
+                        finished = true;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -66,7 +84,7 @@ fn part_one(input: &str) -> u32 {
 }
 
 fn part_two(input: &str) -> u32 {
-    let signal = max_thruster_signal2(input, false);
+    let signal = max_thruster_signal2(input);
     signal.try_into().unwrap()
 }
 
@@ -74,8 +92,8 @@ fn main() {
     let input = include_str!("../inputs/07.txt").trim();
     let one = part_one(input);
     assert_eq!(one, 21760);
-    let _two = part_two(input);
-    todo!("finish part two");
+    let two = part_two(input);
+    assert_eq!(two, 69816958);
 }
 
 #[cfg(test)]
@@ -116,10 +134,19 @@ mod tests {
     fn test_part_two_a() {
         assert_eq!(
             max_thruster_signal2(
-                "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5",
-                false
+                "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"
             ),
             139629729
+        )
+    }
+
+    #[test]
+    fn test_part_two_b() {
+        assert_eq!(
+            max_thruster_signal2(
+                "3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10"
+            ),
+            18216
         )
     }
 
