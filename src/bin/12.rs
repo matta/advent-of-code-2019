@@ -183,7 +183,7 @@ pub fn part_two(_input: &str) -> i64 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 12);
+    let input = include_str!("../inputs/12.txt");
     assert_eq!(part_one(input), 14780);
     assert_eq!(part_two(input), 279751820342592);
 }

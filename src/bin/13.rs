@@ -509,7 +509,7 @@ fn part_two(input: &str) -> i64 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 13);
+    let input = include_str!("../inputs/13.txt");
     assert_eq!(part_one(input), 277);
     assert_eq!(part_two(input), 12856);
 }

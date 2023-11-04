@@ -187,7 +187,7 @@ fn part_two(input: &str) -> u64 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 14);
+    let input = include_str!("../inputs/14.txt");
     assert_eq!(part_one(input), 346961);
     assert_eq!(part_two(input), 4065790);
 }
@@ -273,13 +273,13 @@ mod tests {
 
     #[test]
     fn test_part_one_example() {
-        let input = advent_of_code::read_file("examples", 14);
+        let input = include_str!("../examples/14.txt");
         assert_eq!(part_one(&input), 2210736);
     }
 
     #[test]
     fn test_part_two_example() {
-        let input = advent_of_code::read_file("examples", 14);
+        let input = include_str!("../examples/14.txt");
         assert_eq!(part_two(&input), 460664);
     }
 

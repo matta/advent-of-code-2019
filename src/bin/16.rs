@@ -88,7 +88,7 @@ fn part_two(input: &str) -> i32 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 16);
+    let input = include_str!("../inputs/16.txt");
     assert_eq!(part_one(input), 89576828);
     assert_eq!(part_two(input), 23752579);
 }

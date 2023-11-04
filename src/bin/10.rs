@@ -279,7 +279,7 @@ pub fn part_two(input: &str) -> i32 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 10);
+    let input = include_str!("../inputs/10.txt");
     let one = part_one(input);
     assert_eq!(one, 267);
     let two = part_two(input);

@@ -527,7 +527,7 @@ pub fn part_two(input: &str) -> String {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 11);
+    let input = include_str!("../inputs/11.txt");
     assert_eq!(part_one(input), 1564);
     assert_eq!(part_two(input),
                "###########################################\n ###  #### #### ###   ##  #### #### ###   #\n##  # #    #    #  # #  # #    #    #  #   \n##  # ###  ###  #  # #    ###  ###  ###    \n ###  #    #    ###  #    #    #    #  #  #\n # #  #    #    #    #  # #    #    #  # ##\n##  # #    #### #     ##  #    #### ###  ##\n###########################################\n");

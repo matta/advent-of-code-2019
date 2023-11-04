@@ -450,7 +450,7 @@ fn part_two(intcode: &str) -> i64 {
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 17);
+    let input = include_str!("../inputs/17.txt");
     assert_eq!(part_one(input), 7328);
     assert_eq!(part_two(input), 1289413);
 }
@@ -460,14 +460,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_part_one() {
-        let input = advent_of_code::read_file("inputs", 17);
-        assert_eq!(part_one(&input), 7328);
-    }
-
-    #[test]
-    fn test_part_two() {
-        let input = advent_of_code::read_file("inputs", 17);
-        assert_eq!(part_two(&input), 1289413);
+    fn test_main() {
+        main();
     }
 }

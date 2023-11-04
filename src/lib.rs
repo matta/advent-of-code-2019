@@ -3,9 +3,6 @@
  * There is no need to edit this file unless you want to change template functionality.
  * Prefer `./helpers.rs` if you want to extract code from your solutions.
  */
-use std::env;
-use std::fs;
-
 pub mod helpers;
 pub mod intcode;
 
@@ -40,20 +37,6 @@ macro_rules! solve {
         println!("🎄 {}Part {}{} 🎄", ANSI_BOLD, $part, ANSI_RESET);
         print_result($solver, $input);
     }};
-}
-
-pub fn read_file(folder: &str, day: u8) -> String {
-    let cwd = env::current_dir().unwrap();
-
-    let filepath = cwd.join("src").join(folder).join(format!("{day:02}.txt"));
-
-    fs::read_to_string(&filepath).unwrap_or_else(|e| {
-        panic!(
-            "could not open input file: {}; {}",
-            filepath.to_string_lossy(),
-            e
-        )
-    })
 }
 
 fn parse_time(val: &str, postfix: &str) -> f64 {
