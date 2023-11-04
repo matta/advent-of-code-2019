@@ -159,7 +159,7 @@ fn get_map(input: &str) -> (Vec<Vec<bool>>, Point, Direction) {
     (scaffold, robot_pos.unwrap(), robot_dir.unwrap())
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
+fn part_one(input: &str) -> i32 {
     let (scaffold, _pos, _dir) = get_map(input);
 
     let mut sum: i32 = 0;
@@ -174,7 +174,7 @@ pub fn part_one(input: &str) -> Option<i32> {
             }
         }
     }
-    Some(sum)
+    sum
 }
 
 fn walk_forward(scaffold: &[Vec<bool>], pos: &Point, dir: &Direction) -> Point {
@@ -410,7 +410,7 @@ fn compress(route: &[Movement]) -> (Vec<Movement>, Vec<Vec<Movement>>) {
     (compressed, routines)
 }
 
-pub fn part_two(intcode: &str) -> Option<i64> {
+fn part_two(intcode: &str) -> i64 {
     let (scaffold, pos, dir) = get_map(intcode);
 
     // draw(&scaffold, pos, dir);
@@ -443,16 +443,16 @@ pub fn part_two(intcode: &str) -> Option<i64> {
             let ch = char::from_u32(out as u32).unwrap();
             print!("{}", ch);
         } else {
-            return Some(out);
+            return out;
         }
     }
-    None
+    unreachable!()
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 17);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 7328);
+    assert_eq!(part_two(input), 1289413);
 }
 
 #[cfg(test)]
@@ -462,12 +462,12 @@ mod tests {
     #[test]
     fn test_part_one() {
         let input = advent_of_code::read_file("inputs", 17);
-        assert_eq!(part_one(&input), Some(7328));
+        assert_eq!(part_one(&input), 7328);
     }
 
     #[test]
     fn test_part_two() {
         let input = advent_of_code::read_file("inputs", 17);
-        assert_eq!(part_two(&input), Some(1289413));
+        assert_eq!(part_two(&input), 1289413);
     }
 }

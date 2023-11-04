@@ -58,11 +58,11 @@ fn fft_run(input: &str, count: u32) -> i32 {
     as_num(&digits[..8])
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
-    Some(fft_run(input, 100))
+fn part_one(input: &str) -> i32 {
+    fft_run(input, 100)
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
+fn part_two(input: &str) -> i32 {
     // Credit to all the kind people on
     // https://www.reddit.com/r/adventofcode/comments/ebai4g/2019_day_16_solutions/
     // who are more mathematically inclined and persistent than I am.
@@ -84,13 +84,13 @@ pub fn part_two(input: &str) -> Option<i32> {
         }
     }
 
-    Some(as_num(&digits[..8]))
+    as_num(&digits[..8])
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 16);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 89576828);
+    assert_eq!(part_two(input), 23752579);
 }
 
 #[cfg(test)]
@@ -109,14 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_part_one() {
-        let input = advent_of_code::read_file("inputs", 16);
-        assert_eq!(part_one(&input), Some(89576828));
-    }
-
-    #[test]
-    fn test_part_two() {
-        let input = advent_of_code::read_file("inputs", 16);
-        assert_eq!(part_two(&input), Some(23752579));
+    fn test_main() {
+        main()
     }
 }
