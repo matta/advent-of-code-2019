@@ -379,3 +379,76 @@ impl Computer {
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_step_add() {
+        let mut computer = Computer::parse("1,5,6,7,99,11,13,0");
+        computer.trace = true;
+        computer.memory.trace = true;
+        let mut input = VecDeque::from(vec![1 as i64]);
+        assert_eq!(computer.step(&mut input), None);
+        assert_eq!(computer.pc, 4);
+        assert_eq!(computer.memory.vec, vec![1, 5, 6, 7, 99, 11, 13, 11 + 13]);
+    }
+
+    #[test]
+    fn test_step_multiply() {
+        let mut computer = Computer::parse("2,5,6,7,99,11,13,0");
+        computer.trace = true;
+        computer.memory.trace = true;
+        let mut input = VecDeque::from(vec![1 as i64]);
+        assert_eq!(computer.step(&mut input), None);
+        assert_eq!(computer.pc, 4);
+        assert_eq!(computer.memory.vec, vec![2, 5, 6, 7, 99, 11, 13, 11 * 13]);
+    }
+
+    fn run_program(program_text: &str, input_number: i64, trace: bool) -> Vec<i64> {
+        let mut computer = Computer::parse(program_text);
+        let mut input = VecDeque::from(vec![input_number]);
+        computer.trace = trace;
+        computer.memory.trace = trace;
+        let mut output = Vec::new();
+        while let Some(num) = computer.run(&mut input) {
+            output.push(num);
+        }
+        output
+    }
+
+    #[test]
+    fn test_part_one_quine() {
+        assert_eq!(
+            run_program(
+                "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99",
+                0,
+                true
+            ),
+            vec![109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99]
+        );
+    }
+
+    #[test]
+    fn test_part_one_16_digit() {
+        assert_eq!(
+            run_program("1102,34915192,34915192,7,4,7,99,0", 0, true),
+            vec![1219070632396864]
+        );
+    }
+
+    #[test]
+    fn test_part_one_digit_in_the_middle() {
+        assert_eq!(
+            run_program("104,1125899906842624,99", 0, true),
+            vec![1125899906842624]
+        );
+    }
+
+    #[test]
+    fn test_output_input() {
+        assert_eq!(run_program("3,0,4,0,99", 42, true), vec![42]);
+    }
+
+}

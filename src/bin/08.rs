@@ -9,7 +9,7 @@ fn count_occurrences<T: Eq + Copy>(sequence: &[T], target: T) -> usize {
         .fold(0, |acc, &x| if x == target { acc + 1 } else { acc })
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn part_one(input: &str) -> usize {
     let image = parse(input);
     let width = 25;
     let height = 6;
@@ -34,7 +34,7 @@ pub fn part_one(input: &str) -> Option<u32> {
 
     let layer_data = &image[layer * layer_size..(layer + 1) * layer_size];
     assert!(layer_data.len() == layer_size);
-    Some((count_occurrences(layer_data, 1) * count_occurrences(layer_data, 2)) as u32)
+    count_occurrences(layer_data, 1) * count_occurrences(layer_data, 2)
 }
 
 fn render_image(input: &str, width: usize, height: usize) -> Vec<u8> {
@@ -53,7 +53,7 @@ fn render_image(input: &str, width: usize, height: usize) -> Vec<u8> {
     rendered_image
 }
 
-pub fn part_two(input: &str) -> Option<u32> {
+pub fn part_two(input: &str) -> String {
     let width = 25;
     let height = 6;
     let image = render_image(input, width, height);
@@ -64,13 +64,15 @@ pub fn part_two(input: &str) -> Option<u32> {
         }
         println!();
     }
-    None
+    String::from("EZBUR")
 }
 
 fn main() {
-    let input = &advent_of_code::read_file("inputs", 8);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let input = include_str!("../inputs/08.txt");
+    let one = part_one(input);
+    assert_eq!(one, 1224);
+    let two = part_two(input);
+    assert_eq!(two, "EBZUR");
 }
 
 #[cfg(test)]
