@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use advent_of_code::intcode;
+use aoc2019::intcode;
 
 #[derive(Debug)]
 struct Mover {

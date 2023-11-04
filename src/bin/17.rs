@@ -1,7 +1,10 @@
 use core::fmt;
-use std::{collections::VecDeque, ops::Add, ops::Sub};
+use std::collections::VecDeque;
 
-use advent_of_code::intcode::{Computer, ComputerIO};
+use aoc2019::intcode::{Computer, ComputerIO};
+use aoc2019::point::Point2D;
+
+type Point = Point2D<i32>;
 
 struct CaptureOutput {
     output: Option<i64>,
@@ -36,34 +39,6 @@ fn is_alignment_parameter(scaffold: &[Vec<bool>], pos: Point) -> bool {
         && is_scaffold(scaffold, pos + Direction::South.delta())
         && is_scaffold(scaffold, pos + Direction::East.delta())
         && is_scaffold(scaffold, pos + Direction::West.delta())
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Point {
-    x: i32,
-    y: i32,
-}
-
-impl Point {
-    fn new(x: i32, y: i32) -> Point {
-        Point { x, y }
-    }
-}
-
-impl Add for Point {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self::new(self.x + other.x, self.y + other.y)
-    }
-}
-
-impl Sub for Point {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Self::new(self.x - other.x, self.y - other.y)
-    }
 }
 
 #[derive(Debug, Clone, Copy)]

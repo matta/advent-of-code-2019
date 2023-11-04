@@ -1,4 +1,4 @@
-// Example import from this file: `use advent_of_code::intcode::Foo;`.
+// Example import from this file: `use aoc2019::intcode::Foo;`.
 
 use std::collections::VecDeque;
 

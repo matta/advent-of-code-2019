@@ -1,4 +1,4 @@
-use advent_of_code::intcode::Computer;
+use aoc2019::intcode::Computer;
 use std::collections::VecDeque;
 
 fn run_program(program_text: &str, input_number: i64) -> i64 {

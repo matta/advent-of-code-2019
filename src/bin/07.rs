@@ -1,4 +1,4 @@
-use advent_of_code::intcode::Computer;
+use aoc2019::intcode::Computer;
 use itertools::Itertools;
 use std::collections::VecDeque;
 
