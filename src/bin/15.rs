@@ -329,37 +329,26 @@ fn compute_oxygen_fill_time(program_text: &str) -> i32 {
     max_distance
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
-    let distance = find_oxygen_system(input);
-    assert_eq!(distance, 240);
-    Some(distance)
+fn part_one(input: &str) -> i32 {
+    find_oxygen_system(input)
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
-    let fill_time = compute_oxygen_fill_time(input);
-    assert_eq!(fill_time, 322);
-    Some(fill_time)
+fn part_two(input: &str) -> i32 {
+    compute_oxygen_fill_time(input)
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 15);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 240);
+    assert_eq!(part_two(input), 322);
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn test_part_one() {
-//         let input = advent_of_code::read_file("examples", 15);
-//         assert_eq!(part_one(&input), None);
-//     }
-
-//     #[test]
-//     fn test_part_two() {
-//         let input = advent_of_code::read_file("examples", 15);
-//         assert_eq!(part_two(&input), None);
-//     }
-// }
+    #[test]
+    fn test_main() {
+        main();
+    }
+}

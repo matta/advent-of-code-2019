@@ -154,14 +154,12 @@ fn ore_required(reactions: &Vec<Option<Reaction>>, target: u32, target_amount: u
     ore_required_recur(reactions, &mut surplus, target, target_amount)
 }
 
-pub fn part_one(input: &str) -> Option<u64> {
+fn part_one(input: &str) -> u64 {
     let reactions = parse_input(input).expect("bad input");
-    let ore = ore_required(&reactions, NAME_TABLE_FUEL, 1);
-
-    Some(ore)
+    ore_required(&reactions, NAME_TABLE_FUEL, 1)
 }
 
-pub fn part_two(input: &str) -> Option<u64> {
+fn part_two(input: &str) -> u64 {
     let reactions = parse_input(input).expect("bad input");
 
     let compute = |target_amount| ore_required(&reactions, NAME_TABLE_FUEL, target_amount);
@@ -185,13 +183,13 @@ pub fn part_two(input: &str) -> Option<u64> {
         }
     }
 
-    Some(lowest)
+    lowest
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 14);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 346961);
+    assert_eq!(part_two(input), 4065790);
 }
 
 #[cfg(test)]
@@ -205,7 +203,7 @@ mod tests {
                 r#"7 ORE => 3 A
                    5 A => 1 FUEL"#
             ),
-            Some(14)
+            14
         );
     }
 
@@ -220,7 +218,7 @@ mod tests {
                    7 A, 1 D => 1 E
                    7 A, 1 E => 1 FUEL"#
             ),
-            Some(31)
+            31
         );
     }
 
@@ -236,7 +234,7 @@ mod tests {
                    4 C, 1 A => 1 CA
                    2 AB, 3 BC, 4 CA => 1 FUEL"#
             ),
-            Some(165)
+            165
         );
     }
 
@@ -252,7 +250,7 @@ mod tests {
                        165 ORE => 2 GPVTF
                        3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"#;
 
-        assert_eq!(part_one(input), Some(13312));
+        assert_eq!(part_one(input), 13312);
     }
 
     #[test]
@@ -270,18 +268,23 @@ mod tests {
             1 NVRVD => 8 CXFTF
             1 VJHF, 6 MNCFX => 4 RFSQX
             176 ORE => 6 VJHF"#;
-        assert_eq!(part_one(input), Some(180697));
+        assert_eq!(part_one(input), 180697);
     }
 
     #[test]
     fn test_part_one_example() {
         let input = advent_of_code::read_file("examples", 14);
-        assert_eq!(part_one(&input), Some(2210736));
+        assert_eq!(part_one(&input), 2210736);
     }
 
     #[test]
     fn test_part_two_example() {
         let input = advent_of_code::read_file("examples", 14);
-        assert_eq!(part_two(&input), Some(460664));
+        assert_eq!(part_two(&input), 460664);
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }

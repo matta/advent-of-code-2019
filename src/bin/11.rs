@@ -490,13 +490,14 @@ fn compute(input: &str, default_color: Color) -> HashMap<Point, Color> {
     panel
 }
 
-fn print_panel(panel: &HashMap<Point, Color>, default_color: Color) {
-    let print = |color: Color| {
+fn print_panel(panel: &HashMap<Point, Color>, default_color: Color) -> String {
+    let mut output = String::new();
+    let print = |color: Color, output: &mut String| {
         let ch = match color {
-            Color::Black => '█',
-            Color::White => '░',
+            Color::Black => ' ',
+            Color::White => '#',
         };
-        print!("{}", ch);
+        output.push(ch);
     };
 
     let min_x = panel.keys().map(|p| p.x).min().unwrap();
@@ -507,28 +508,37 @@ fn print_panel(panel: &HashMap<Point, Color>, default_color: Color) {
     for y in (min_y - 1)..=(max_y + 1) {
         for x in min_x..=max_x {
             let color = panel.get(&point(x, y)).unwrap_or(&default_color);
-            print(*color);
+            print(*color, &mut output);
         }
-        println!();
+        output.push('\n');
     }
+    print!("{}", output);
+    output
 }
 
-pub fn part_one(input: &str) -> Option<usize> {
+pub fn part_one(input: &str) -> usize {
     let panel = compute(input, Color::Black);
-    Some(panel.len())
+    panel.len()
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
+pub fn part_two(input: &str) -> String {
     let panel = compute(input, Color::White);
-    print_panel(&panel, Color::White);
-    None
+    print_panel(&panel, Color::White)
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 11);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 1564);
+    assert_eq!(part_two(input),
+               "###########################################\n ###  #### #### ###   ##  #### #### ###   #\n##  # #    #    #  # #  # #    #    #  #   \n##  # ###  ###  #  # #    ###  ###  ###    \n ###  #    #    ###  #    #    #    #  #  #\n # #  #    #    #    #  # #    #    #  # ##\n##  # #    #### #     ##  #    #### ###  ##\n###########################################\n");
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_main() {
+        main();
+    }
+}

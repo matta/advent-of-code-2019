@@ -174,18 +174,18 @@ fn compute_part_two(input: &str) -> i64 {
     lcm(x_period, lcm(y_period, z_period))
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
-    Some(compute_part_one(input, 1000))
+pub fn part_one(input: &str) -> i32 {
+    compute_part_one(input, 1000)
 }
 
-pub fn part_two(_input: &str) -> Option<i64> {
-    Some(compute_part_two(_input))
+pub fn part_two(_input: &str) -> i64 {
+    compute_part_two(_input)
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 12);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 14780);
+    assert_eq!(part_two(input), 279751820342592);
 }
 
 #[cfg(test)]
@@ -240,5 +240,10 @@ mod tests {
     #[test]
     fn test_compute_part_two_example_2() {
         assert_eq!(compute_part_two(EXAMPLE2), 4686774924)
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }

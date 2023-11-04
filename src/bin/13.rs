@@ -390,7 +390,7 @@ fn run_program(program_text: &str, trace: bool) -> Result<Vec<i64>> {
     Ok(output.vec)
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
+fn part_one(input: &str) -> i32 {
     let output = run_program(input, false).unwrap();
 
     let mut tiles: HashMap<(i64, i64), i64> = HashMap::new();
@@ -413,7 +413,7 @@ pub fn part_one(input: &str) -> Option<i32> {
             block_tiles += 1;
         }
     }
-    Some(block_tiles)
+    block_tiles
 }
 
 #[derive(PartialEq, Eq)]
@@ -498,23 +498,28 @@ impl ComputerIO for Pong {
     }
 }
 
-pub fn part_two(input: &str) -> Option<i64> {
+fn part_two(input: &str) -> i64 {
     let mut pong = Pong::new();
     let mut computer = parse_program(input, &mut pong as &mut dyn ComputerIO);
     computer.memory.vec[0] = 2; // insert infinite quarters, per the problem instructions
     while !computer.finished {
         computer.step().unwrap();
     }
-    pong.score
+    pong.score.unwrap()
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 13);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    assert_eq!(part_one(input), 277);
+    assert_eq!(part_two(input), 12856);
 }
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
+
+    #[test]
+    fn test_main() {
+        main();
+    }
 }

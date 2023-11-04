@@ -205,8 +205,8 @@ fn part_one_best_count(input: &str) -> i32 {
     *max
 }
 
-pub fn part_one(input: &str) -> Option<i32> {
-    Some(part_one_best_count(input))
+pub fn part_one(input: &str) -> i32 {
+    part_one_best_count(input)
 }
 
 fn angle(p1: Point, p2: Point) -> f32 {
@@ -221,7 +221,7 @@ fn angle(p1: Point, p2: Point) -> f32 {
     radians * 180.0 / std::f32::consts::PI
 }
 
-fn part_two_compute(input: &str) -> Option<Point> {
+fn part_two_compute(input: &str) -> Point {
     let grid = parse_grid(input);
     let counts = part_one_counts(&grid);
     let mut max_count = 0;
@@ -264,23 +264,26 @@ fn part_two_compute(input: &str) -> Option<Point> {
             if let Some((_, point)) = distances.pop_first() {
                 count += 1;
                 if count == 200 {
-                    return Some(point);
+                    return point;
                 }
             }
         }
     }
 
-    None
+    panic!("should never get here")
 }
 
-pub fn part_two(input: &str) -> Option<i32> {
-    part_two_compute(input).map(|point| point.x * 100 + point.y)
+pub fn part_two(input: &str) -> i32 {
+    let point = part_two_compute(input);
+    point.x * 100 + point.y
 }
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 10);
-    advent_of_code::solve!(1, part_one, input);
-    advent_of_code::solve!(2, part_two, input);
+    let one = part_one(input);
+    assert_eq!(one, 267);
+    let two = part_two(input);
+    assert_eq!(two, 1309);
 }
 
 #[cfg(test)]
@@ -389,6 +392,11 @@ mod tests {
         let grid = parse_grid(input);
         assert!(!grid.get(point(12, 0)));
         assert!(grid.get(point(12, 1)));
-        assert_eq!(part_two(input), Some(802));
+        assert_eq!(part_two(input), 802);
+    }
+
+    #[test]
+    fn test_main() {
+        main();
     }
 }
