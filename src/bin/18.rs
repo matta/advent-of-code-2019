@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables)]
 
-use std::collections::BTreeSet;
+use std::fmt;
 
 use aoc2019::point::Point2D;
 use pathfinding::prelude::astar;
@@ -13,13 +13,57 @@ type Grid = Vec<Vec<char>>;
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Character {
     pos: Point,
-    keys: BTreeSet<char>,
+    keys: u32, // 'a' is bit 0, 'b' is bit 1, etc.
 }
 
 impl Character {
     fn new() -> Character {
         Character::default()
     }
+
+    fn set_key(&mut self, key: char) {
+        assert!(matches!(key, 'a'..='z'));
+        let mask: u32 = (1 as u32) << ((key as u32) - ('a' as u32));
+        self.keys |= mask;
+    }
+
+    fn have_key(&self, key: char) -> bool {
+        assert!(matches!(key, 'A'..='Z'));
+        let mask: u32 = (1 as u32) << ((key as u32) - ('A' as u32));
+        (self.keys & mask) != 0
+    }
+}
+
+impl fmt::Display for Character {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "<{} ", self.pos)?;
+        for ch in 'A'..='Z' {
+            let c = if self.have_key(ch) { ch } else { '.' };
+            write!(f, "{}", c)?;
+        }
+        write!(f, ">")
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_character_keys() {
+    let mut c = Character::new();
+    assert_eq!(format!("{}" ,c), "<(0, 0) ..........................>");
+
+    assert_eq!(false, c.have_key('A'));
+    c.set_key('a');
+    assert_eq!(true, c.have_key('A'));
+    assert_eq!(format!("{}" ,c), "<(0, 0) A.........................>");
+
+    assert_eq!(false, c.have_key('Z'));
+    c.set_key('z');
+    assert_eq!(true, c.have_key('Z'));
+    assert_eq!(format!("{}" ,c), "<(0, 0) A........................Z>");
 }
 
 fn parse_input(input: &str) -> (Grid, Character) {
@@ -76,23 +120,30 @@ fn part_one(input: &str) -> usize {
     let mut count = 0;
     let successors = |character: &Character| {
         count += 1;
-        if count % 100000 == 0 {
-            println!("successors of {:?}", character);
+        if count % 100_000 == 0 {
+            println!("{} successors of {}", count, character);
         }
         let succ = directions
             .iter()
-            .map(|pos| *pos + character.pos)
-            .filter_map(|pos| -> Option<Character> {
-                match grid_get(&grid, pos) {
+            .map(|direction| *direction + character.pos)
+            .filter_map(|neighbor_pos| -> Option<Character> {
+                match grid_get(&grid, neighbor_pos) {
                     Some(ch @ 'a'..='z') => {
-                        let mut keys = character.keys.clone();
-                        keys.insert(ch.to_ascii_uppercase());
-                        Some(Character { pos, keys })
+                        let mut neighbor = Character {
+                            pos: neighbor_pos,
+                            keys: character.keys,
+                        };
+                        neighbor.set_key(ch);
+                        Some(neighbor)
                     }
-                    Some(ch) if ch == '.' || character.keys.contains(&ch) => Some(Character {
-                        pos,
-                        keys: character.keys.clone(),
-                    }),
+                    Some(ch)
+                        if ch == '.' || (matches!(ch, 'A'..='Z') && character.have_key(ch)) =>
+                    {
+                        Some(Character {
+                            pos: neighbor_pos,
+                            keys: character.keys,
+                        })
+                    }
                     _ => None,
                 }
             })
@@ -101,13 +152,16 @@ fn part_one(input: &str) -> usize {
         // println!("successors of {:?} are {:?}", character, succ);
         succ
     };
-    let heuristic = |character: &Character| num_keys - character.keys.len();
-    let success = |character: &Character| character.keys.len() == num_keys;
+    let heuristic = |character: &Character| num_keys - character.keys.count_ones() as usize;
+    let success = |character: &Character| character.keys.count_ones() as usize == num_keys;
 
-    let result = astar(&start, successors, heuristic, success).unwrap();
-    println!("result: {:?}", result);
+    let (path, path_len) = astar(&start, successors, heuristic, success).unwrap();
+    for character in path {
+        println!("path = {}", character)
+    }
+    println!("path_len: {:?}", path_len);
 
-    result.1
+    path_len
 }
 
 fn main() {

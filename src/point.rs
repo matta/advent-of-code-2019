@@ -1,4 +1,5 @@
 use std::cmp::Ord;
+use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
 
@@ -46,5 +47,11 @@ impl<T: Sub<Output = T>> Sub for Point2D<T> {
             x: self.x - other.x,
             y: self.y - other.y,
         }
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for Point2D<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
