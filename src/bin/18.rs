@@ -7,7 +7,7 @@ use std::fmt;
 use std::hash::Hash;
 
 use aoc2019::point::Point2D;
-use pathfinding::prelude::astar;
+use pathfinding::prelude::dijkstra;
 
 const INPUT: &str = include_str!("../inputs/18.txt");
 
@@ -384,7 +384,7 @@ fn part_one(input: &str) -> u32 {
     assert_eq!(entry_points.len(), 1);
     let start = Agent {
         pos: entry_points[0],
-        ..Default::default()
+        keys: KeySet::default(),
     };
 
     let num_keys = graph.num_keys();
@@ -423,18 +423,22 @@ fn part_one(input: &str) -> u32 {
         }
     };
 
-    let heuristic = |character: &Agent| num_keys - character.keys.len();
     let success = |character: &Agent| character.keys.len() == num_keys;
 
-    let (path, path_len) = astar(&start, successors, heuristic, success).unwrap();
-    if false {
-        for character in path {
-            println!("path = {}", character)
+    let path_len = {
+        let (path, path_len) = dijkstra(&start, successors, success).unwrap();
+        if false {
+            for character in path {
+                println!("path = {}", character)
+            }
         }
-    }
-    if false {
-        println!("path_len: {:?}", path_len);
-        println!("computed successors {:?} times", count);
+        path_len
+    };
+    if true {
+        println!(
+            "path length: {:?}; took {} computed successors",
+            path_len, count
+        );
     }
 
     path_len
