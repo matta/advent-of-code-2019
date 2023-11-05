@@ -1,6 +1,10 @@
 #![allow(dead_code, unused_variables)]
 
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fmt;
+use std::hash::Hash;
 
 use aoc2019::point::Point2D;
 use pathfinding::prelude::astar;
@@ -10,9 +14,38 @@ const INPUT: &str = include_str!("../inputs/18.txt");
 type Point = Point2D<i32>;
 type Grid = Vec<Vec<Cell>>;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 struct KeySet {
     mask: u32,
+}
+
+impl fmt::Debug for KeySet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", "{")?;
+        for ch in 'A'..='Z' {
+            let key: KeySet = ch.try_into().unwrap();
+            if self.contains(key) {
+                write!(f, "{}", ch)?
+            }
+        }
+        write!(f, "{}", '}')
+    }
+}
+
+impl KeySet {
+    fn len(&self) -> u32 {
+        self.mask.count_ones()
+    }
+
+    fn union(&self, other: KeySet) -> KeySet {
+        KeySet {
+            mask: self.mask | other.mask,
+        }
+    }
+
+    fn contains(&self, other: KeySet) -> bool {
+        (self.mask & other.mask) == other.mask
+    }
 }
 
 impl TryFrom<u32> for KeySet {
@@ -77,20 +110,12 @@ impl TryFrom<char> for Cell {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
     pos: Point,
-    keys: u32, // 'a' is bit 0, 'b' is bit 1, etc.
+    keys: KeySet,
 }
 
 impl Agent {
     fn new() -> Agent {
         Agent::default()
-    }
-
-    fn set_key(&mut self, key: KeySet) {
-        self.keys |= key.mask;
-    }
-
-    fn have_key(&self, key: KeySet) -> bool {
-        (self.keys & key.mask) != 0
     }
 }
 
@@ -103,7 +128,7 @@ impl fmt::Display for Agent {
         write!(f, "<{} ", self.pos)?;
         for ch in 'A'..='Z' {
             let key: KeySet = ch.try_into().unwrap();
-            let c = if self.have_key(key) { ch } else { '.' };
+            let c = if self.keys.contains(key) { ch } else { '.' };
             write!(f, "{}", c)?;
         }
         write!(f, ">")
@@ -116,14 +141,14 @@ fn test_character_keys() {
     let mut c = Agent::new();
     assert_eq!(format!("{}", c), "<(0, 0) ..........................>");
 
-    assert_eq!(false, c.have_key('A'.try_into().unwrap()));
-    c.set_key('a'.try_into().unwrap());
-    assert_eq!(true, c.have_key('A'.try_into().unwrap()));
+    assert_eq!(false, c.keys.contains('A'.try_into().unwrap()));
+    c.keys = c.keys.union('a'.try_into().unwrap());
+    assert_eq!(true, c.keys.contains('A'.try_into().unwrap()));
     assert_eq!(format!("{}", c), "<(0, 0) A.........................>");
 
-    assert_eq!(false, c.have_key('Z'.try_into().unwrap()));
-    c.set_key('z'.try_into().unwrap());
-    assert_eq!(true, c.have_key('Z'.try_into().unwrap()));
+    assert_eq!(false, c.keys.contains('Z'.try_into().unwrap()));
+    c.keys = c.keys.union('z'.try_into().unwrap());
+    assert_eq!(true, c.keys.contains('Z'.try_into().unwrap()));
     assert_eq!(format!("{}", c), "<(0, 0) A........................Z>");
 }
 
@@ -150,7 +175,7 @@ fn parse_input(input: &str) -> (Grid, Agent) {
                     grid,
                     Agent {
                         pos: Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
-                        keys: 0,
+                        keys: KeySet::default(),
                     },
                 );
             }
@@ -198,59 +223,219 @@ fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
     neighbors
 }
 
-fn part_one(input: &str) -> usize {
+#[derive(Debug, Clone, Copy)]
+struct ReachableNode {
+    pos: Point,
+    cell: Cell,
+    distance: u32,
+    required_keys: KeySet,
+}
+
+fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableNode> {
+    let start = ReachableNode {
+        pos,
+        cell: grid_get(grid, pos),
+        distance: 0,
+        required_keys: KeySet::default(),
+    };
+
+    let successors = |node: &ReachableNode, explored: &mut HashSet<Point>| {
+        let mut successors = Vec::new();
+        for (cell, pos) in grid_get_non_wall_neighbors(grid, node.pos) {
+            if !explored.insert(pos) {
+                continue; // already explored
+            }
+            let required_keys = match cell {
+                Cell::Door(key) => node.required_keys.union(key),
+                _ => node.required_keys,
+            };
+            successors.push(ReachableNode {
+                pos,
+                cell,
+                distance: node.distance + 1,
+                required_keys,
+            })
+        }
+        successors
+    };
+
+    let mut queue = VecDeque::new();
+    let mut explored = HashSet::new();
+    let mut reachable = Vec::new();
+    explored.insert(pos);
+    for node in successors(&start, &mut explored) {
+        queue.push_back(node);
+    }
+    while let Some(node) = queue.pop_front() {
+        if matches!(node.cell, Cell::Key(_) | Cell::Door(_)) {
+            reachable.push(node);
+        } else {
+            let successors = successors(&node, &mut explored);
+            for succ in successors {
+                queue.push_back(succ);
+            }
+        }
+    }
+
+    reachable
+}
+
+struct Node {
+    cell: Cell,
+    reachable: Vec<ReachableNode>,
+}
+
+#[derive(Default)]
+struct Graph {
+    nodes: BTreeMap<Point, Node>,
+}
+
+impl Graph {
+    fn entry_points(&self) -> Vec<Point> {
+        self.nodes
+            .iter()
+            .filter_map(|(pos, node)| match node.cell {
+                Cell::Entrance => Some(*pos),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn num_keys(&self) -> u32 {
+        self.nodes
+            .values()
+            .filter(|node| matches!(node.cell, Cell::Key(_)))
+            .count()
+            .try_into()
+            .expect("key count fits in u32")
+    }
+}
+
+fn compute_graph(grid: &Grid) -> Graph {
+    let mut graph: Graph = Graph::default();
+
+    let mut queue = VecDeque::new();
+
+    for (y, row) in grid.iter().enumerate() {
+        for (x, &cell) in row.iter().enumerate() {
+            let pos = Point::new(x.try_into().unwrap(), y.try_into().unwrap());
+            if matches!(cell, Cell::Entrance) {
+                let reachable = compute_reachable(grid, pos);
+                for node in &reachable {
+                    queue.push_back(*node);
+                }
+                graph.nodes.insert(pos, Node { cell, reachable });
+            }
+        }
+    }
+
+    while let Some(node) = queue.pop_front() {
+        let reachable = compute_reachable(grid, node.pos);
+        for node in &reachable {
+            if !graph.nodes.contains_key(&node.pos) {
+                queue.push_back(*node);
+            }
+        }
+        graph.nodes.insert(
+            node.pos,
+            Node {
+                cell: node.cell,
+                reachable,
+            },
+        );
+    }
+
+    graph
+}
+
+fn parse_graph(input: &str) -> Graph {
+    if false {
+        println!("input:\n{}", input);
+    }
     let (grid, start) = parse_input(input);
     let num_keys = grid
         .iter()
         .flatten()
         .filter(|ch| matches!(ch, Cell::Key(_)))
         .count();
-    println!("start {:?}", start);
-    println!("num_keys {:?}", num_keys);
+    if false {
+        println!("start {:?}", start);
+        println!("num_keys {:?}", num_keys);
+    }
+
+    let graph = compute_graph(&grid);
+
+    if false {
+        println!("as graph:");
+        for (pos, node) in &graph.nodes {
+            println!("   pos: {} cell: {:?}", pos, node.cell);
+            for reachable in &node.reachable {
+                println!("      {:?}", reachable);
+            }
+        }
+    }
+
+    graph
+}
+
+fn part_one(input: &str) -> u32 {
+    let graph = parse_graph(input);
+    let entry_points = graph.entry_points();
+    assert_eq!(entry_points.len(), 1);
+    let start = Agent {
+        pos: entry_points[0],
+        ..Default::default()
+    };
+
+    let num_keys = graph.num_keys();
 
     let mut count = 0;
-    let successors = |agent: &Agent| {
+    let successors = |agent: &Agent| -> Vec<(Agent, u32)> {
         count += 1;
-        if count % 100_000 == 0 {
-            println!("{} successors of {}", count, agent);
+        if false && count % 10_000 == 0 {
+            println!("[{}] successors of {}", count, agent);
         }
-        let succ = grid_get_non_wall_neighbors(&grid, agent.pos)
-            .iter()
-            .copied()
-            .filter_map(|(cell, neighbor_pos)| -> Option<Agent> {
-                match cell {
-                    Cell::Key(mask) => {
-                        let mut neighbor = Agent {
-                            pos: neighbor_pos,
-                            keys: agent.keys,
-                        };
-                        neighbor.set_key(mask);
-                        Some(neighbor)
+        if let Some(node) = graph.nodes.get(&agent.pos) {
+            let succ = node
+                .reachable
+                .iter()
+                .filter_map(|reachable| {
+                    if !agent.keys.contains(reachable.required_keys) {
+                        return None;
                     }
-                    Cell::Open | Cell::Entrance => Some(Agent {
-                        pos: neighbor_pos,
-                        keys: agent.keys,
-                    }),
-                    Cell::Door(key) if agent.have_key(key) => Some(Agent {
-                        pos: neighbor_pos,
-                        keys: agent.keys,
-                    }),
-                    Cell::Wall | Cell::Door(_) => None,
-                }
-            })
-            .map(|character| (character, 1))
-            .collect::<Vec<_>>();
-        // println!("successors of {:?} are {:?}", character, succ);
-        succ
+                    let keys = match reachable.cell {
+                        Cell::Key(key) => agent.keys.union(key),
+                        _ => agent.keys,
+                    };
+                    Some((
+                        Agent {
+                            pos: reachable.pos,
+                            keys,
+                        },
+                        reachable.distance,
+                    ))
+                })
+                .collect();
+            // println!("  => {:?}", succ);
+            succ
+        } else {
+            unreachable!()
+        }
     };
-    let heuristic = |character: &Agent| num_keys - character.keys.count_ones() as usize;
-    let success = |character: &Agent| character.keys.count_ones() as usize == num_keys;
+
+    let heuristic = |character: &Agent| num_keys - character.keys.len();
+    let success = |character: &Agent| character.keys.len() == num_keys;
 
     let (path, path_len) = astar(&start, successors, heuristic, success).unwrap();
-    for character in path {
-        println!("path = {}", character)
+    if false {
+        for character in path {
+            println!("path = {}", character)
+        }
     }
-    println!("path_len: {:?}", path_len);
+    if false {
+        println!("path_len: {:?}", path_len);
+        println!("computed successors {:?} times", count);
+    }
 
     path_len
 }
