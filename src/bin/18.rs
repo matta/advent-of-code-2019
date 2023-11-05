@@ -11,24 +11,24 @@ type Point = Point2D<i32>;
 type Grid = Vec<Vec<Cell>>;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-struct KeyMask {
+struct KeySet {
     mask: u32,
 }
 
-impl TryFrom<u32> for KeyMask {
+impl TryFrom<u32> for KeySet {
     type Error = &'static str;
 
     fn try_from(mask: u32) -> Result<Self, Self::Error> {
         let max_mask = (1 as u32) << (26 as u32);
         if mask.count_ones() == 1 && mask <= max_mask {
-            Ok(KeyMask { mask })
+            Ok(KeySet { mask })
         } else {
             Err("invalid key mask value")
         }
     }
 }
 
-impl TryFrom<char> for KeyMask {
+impl TryFrom<char> for KeySet {
     type Error = &'static str;
 
     fn try_from(ch: char) -> Result<Self, Self::Error> {
@@ -39,15 +39,15 @@ impl TryFrom<char> for KeyMask {
         };
         assert!(offset < 26);
         let mask = (1 as u32) << (offset as u32);
-        let key: KeyMask = mask.try_into()?;
+        let key: KeySet = mask.try_into()?;
         Ok(key)
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Cell {
-    Key(KeyMask),
-    Door(KeyMask),
+    Key(KeySet),
+    Door(KeySet),
     Entrance,
     Open,
     Wall,
@@ -62,11 +62,11 @@ impl TryFrom<char> for Cell {
             '#' => Ok(Cell::Wall),
             '.' => Ok(Cell::Open),
             'A'..='Z' => {
-                let mask: KeyMask = (1_u32 << ((ch as u32) - ('A' as u32))).try_into()?;
+                let mask: KeySet = (1_u32 << ((ch as u32) - ('A' as u32))).try_into()?;
                 Ok(Cell::Door(mask))
             }
             'a'..='z' => {
-                let mask: KeyMask = (1_u32 << ((ch as u32) - ('a' as u32))).try_into()?;
+                let mask: KeySet = (1_u32 << ((ch as u32) - ('a' as u32))).try_into()?;
                 Ok(Cell::Key(mask))
             }
             _ => Err("invalid character for cell"),
@@ -85,11 +85,11 @@ impl Agent {
         Agent::default()
     }
 
-    fn set_key(&mut self, key: KeyMask) {
+    fn set_key(&mut self, key: KeySet) {
         self.keys |= key.mask;
     }
 
-    fn have_key(&self, key: KeyMask) -> bool {
+    fn have_key(&self, key: KeySet) -> bool {
         (self.keys & key.mask) != 0
     }
 }
@@ -102,7 +102,7 @@ impl fmt::Display for Agent {
         // is very similar to `println!`.
         write!(f, "<{} ", self.pos)?;
         for ch in 'A'..='Z' {
-            let key: KeyMask = ch.try_into().unwrap();
+            let key: KeySet = ch.try_into().unwrap();
             let c = if self.have_key(key) { ch } else { '.' };
             write!(f, "{}", c)?;
         }
