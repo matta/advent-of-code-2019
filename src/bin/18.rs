@@ -8,33 +8,93 @@ use pathfinding::prelude::astar;
 const INPUT: &str = include_str!("../inputs/18.txt");
 
 type Point = Point2D<i32>;
-type Grid = Vec<Vec<char>>;
+type Grid = Vec<Vec<Cell>>;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+struct KeyMask {
+    mask: u32,
+}
+
+impl TryFrom<u32> for KeyMask {
+    type Error = &'static str;
+
+    fn try_from(mask: u32) -> Result<Self, Self::Error> {
+        let max_mask = (1 as u32) << (26 as u32);
+        if mask.count_ones() == 1 && mask <= max_mask {
+            Ok(KeyMask { mask })
+        } else {
+            Err("invalid key mask value")
+        }
+    }
+}
+
+impl TryFrom<char> for KeyMask {
+    type Error = &'static str;
+
+    fn try_from(ch: char) -> Result<Self, Self::Error> {
+        let offset = match ch {
+            'A'..='Z' => (ch as u32) - ('A' as u32),
+            'a'..='z' => (ch as u32) - ('a' as u32),
+            _ => return Err("invalid key character"),
+        };
+        assert!(offset < 26);
+        let mask = (1 as u32) << (offset as u32);
+        let key: KeyMask = mask.try_into()?;
+        Ok(key)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Cell {
+    Key(KeyMask),
+    Door(KeyMask),
+    Entrance,
+    Open,
+    Wall,
+}
+
+impl TryFrom<char> for Cell {
+    type Error = &'static str;
+
+    fn try_from(ch: char) -> Result<Self, Self::Error> {
+        match ch {
+            '@' => Ok(Cell::Entrance),
+            '#' => Ok(Cell::Wall),
+            '.' => Ok(Cell::Open),
+            'A'..='Z' => {
+                let mask: KeyMask = (1_u32 << ((ch as u32) - ('A' as u32))).try_into()?;
+                Ok(Cell::Door(mask))
+            }
+            'a'..='z' => {
+                let mask: KeyMask = (1_u32 << ((ch as u32) - ('a' as u32))).try_into()?;
+                Ok(Cell::Key(mask))
+            }
+            _ => Err("invalid character for cell"),
+        }
+    }
+}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-struct Character {
+struct Agent {
     pos: Point,
     keys: u32, // 'a' is bit 0, 'b' is bit 1, etc.
 }
 
-impl Character {
-    fn new() -> Character {
-        Character::default()
+impl Agent {
+    fn new() -> Agent {
+        Agent::default()
     }
 
-    fn set_key(&mut self, key: char) {
-        assert!(matches!(key, 'a'..='z'));
-        let mask: u32 = (1 as u32) << ((key as u32) - ('a' as u32));
-        self.keys |= mask;
+    fn set_key(&mut self, key: KeyMask) {
+        self.keys |= key.mask;
     }
 
-    fn have_key(&self, key: char) -> bool {
-        assert!(matches!(key, 'A'..='Z'));
-        let mask: u32 = (1 as u32) << ((key as u32) - ('A' as u32));
-        (self.keys & mask) != 0
+    fn have_key(&self, key: KeyMask) -> bool {
+        (self.keys & key.mask) != 0
     }
 }
 
-impl fmt::Display for Character {
+impl fmt::Display for Agent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Write strictly the first element into the supplied output
         // stream: `f`. Returns `fmt::Result` which indicates whether the
@@ -42,7 +102,8 @@ impl fmt::Display for Character {
         // is very similar to `println!`.
         write!(f, "<{} ", self.pos)?;
         for ch in 'A'..='Z' {
-            let c = if self.have_key(ch) { ch } else { '.' };
+            let key: KeyMask = ch.try_into().unwrap();
+            let c = if self.have_key(key) { ch } else { '.' };
             write!(f, "{}", c)?;
         }
         write!(f, ">")
@@ -52,52 +113,89 @@ impl fmt::Display for Character {
 #[cfg(test)]
 #[test]
 fn test_character_keys() {
-    let mut c = Character::new();
-    assert_eq!(format!("{}" ,c), "<(0, 0) ..........................>");
+    let mut c = Agent::new();
+    assert_eq!(format!("{}", c), "<(0, 0) ..........................>");
 
-    assert_eq!(false, c.have_key('A'));
-    c.set_key('a');
-    assert_eq!(true, c.have_key('A'));
-    assert_eq!(format!("{}" ,c), "<(0, 0) A.........................>");
+    assert_eq!(false, c.have_key('A'.try_into().unwrap()));
+    c.set_key('a'.try_into().unwrap());
+    assert_eq!(true, c.have_key('A'.try_into().unwrap()));
+    assert_eq!(format!("{}", c), "<(0, 0) A.........................>");
 
-    assert_eq!(false, c.have_key('Z'));
-    c.set_key('z');
-    assert_eq!(true, c.have_key('Z'));
-    assert_eq!(format!("{}" ,c), "<(0, 0) A........................Z>");
+    assert_eq!(false, c.have_key('Z'.try_into().unwrap()));
+    c.set_key('z'.try_into().unwrap());
+    assert_eq!(true, c.have_key('Z'.try_into().unwrap()));
+    assert_eq!(format!("{}", c), "<(0, 0) A........................Z>");
 }
 
-fn parse_input(input: &str) -> (Grid, Character) {
-    let mut character = Character::new();
+fn parse_input(input: &str) -> (Grid, Agent) {
     let grid: Grid = input
         .trim()
         .split_ascii_whitespace()
         .enumerate()
         .map(|(y, line)| {
-            let row: Vec<char> = line
-                .chars()
+            line.chars()
                 .enumerate()
-                .map(|(x, ch)| match ch {
-                    '@' => {
-                        character.pos = Point::new(x.try_into().unwrap(), y.try_into().unwrap());
-                        '.'
-                    }
-                    '#' | '.' | 'A'..='Z' | 'a'..='z' => ch,
-                    _ => panic!("unexpected character '{}'", ch),
+                .map(|(x, ch)| {
+                    let cell: Cell = ch.try_into().unwrap();
+                    cell
                 })
-                .collect();
-            row
+                .collect::<Vec<Cell>>()
         })
         .collect();
-    (grid, character)
+
+    for (y, row) in grid.iter().enumerate() {
+        for (x, cell) in row.iter().enumerate() {
+            if matches!(cell, Cell::Entrance) {
+                return (
+                    grid,
+                    Agent {
+                        pos: Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
+                        keys: 0,
+                    },
+                );
+            }
+        }
+    }
+
+    unreachable!("grid had no entrance!")
 }
 
-fn grid_get(grid: &Grid, pos: Point) -> Option<char> {
+fn grid_get(grid: &Grid, pos: Point) -> Cell {
     if pos.y < 0 && pos.x < 0 {
-        return None;
+        return Cell::Wall;
     }
     grid.get(pos.y as usize)
-        .and_then(|row| row.get(pos.x as usize))
-        .copied()
+        .and_then(|row| row.get(pos.x as usize).copied())
+        .unwrap_or(Cell::Wall)
+}
+
+fn grid_is_wall(grid: &Grid, pos: Point) -> bool {
+    match grid_get(grid, pos) {
+        Cell::Wall => true,
+        cell @ (Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_)) => false,
+    }
+}
+
+fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
+    let mut neighbors = Vec::new();
+
+    if !grid_is_wall(grid, pos) {
+        let directions: [Point; 4] = [
+            Point::new(0, -1),
+            Point::new(0, 1),
+            Point::new(-1, 0),
+            Point::new(1, 0),
+        ];
+
+        for neighbor_dir in directions {
+            let neighbor_pos = pos + neighbor_dir;
+            if !grid_is_wall(grid, neighbor_pos) {
+                neighbors.push((grid_get(grid, neighbor_pos), neighbor_pos));
+            }
+        }
+    }
+
+    neighbors
 }
 
 fn part_one(input: &str) -> usize {
@@ -105,46 +203,39 @@ fn part_one(input: &str) -> usize {
     let num_keys = grid
         .iter()
         .flatten()
-        .filter(|ch| matches!(ch, 'a'..='z'))
+        .filter(|ch| matches!(ch, Cell::Key(_)))
         .count();
     println!("start {:?}", start);
     println!("num_keys {:?}", num_keys);
 
-    let directions: [Point; 4] = [
-        Point::new(0, -1),
-        Point::new(0, 1),
-        Point::new(-1, 0),
-        Point::new(1, 0),
-    ];
-
     let mut count = 0;
-    let successors = |character: &Character| {
+    let successors = |agent: &Agent| {
         count += 1;
         if count % 100_000 == 0 {
-            println!("{} successors of {}", count, character);
+            println!("{} successors of {}", count, agent);
         }
-        let succ = directions
+        let succ = grid_get_non_wall_neighbors(&grid, agent.pos)
             .iter()
-            .map(|direction| *direction + character.pos)
-            .filter_map(|neighbor_pos| -> Option<Character> {
-                match grid_get(&grid, neighbor_pos) {
-                    Some(ch @ 'a'..='z') => {
-                        let mut neighbor = Character {
+            .copied()
+            .filter_map(|(cell, neighbor_pos)| -> Option<Agent> {
+                match cell {
+                    Cell::Key(mask) => {
+                        let mut neighbor = Agent {
                             pos: neighbor_pos,
-                            keys: character.keys,
+                            keys: agent.keys,
                         };
-                        neighbor.set_key(ch);
+                        neighbor.set_key(mask);
                         Some(neighbor)
                     }
-                    Some(ch)
-                        if ch == '.' || (matches!(ch, 'A'..='Z') && character.have_key(ch)) =>
-                    {
-                        Some(Character {
-                            pos: neighbor_pos,
-                            keys: character.keys,
-                        })
-                    }
-                    _ => None,
+                    Cell::Open | Cell::Entrance => Some(Agent {
+                        pos: neighbor_pos,
+                        keys: agent.keys,
+                    }),
+                    Cell::Door(key) if agent.have_key(key) => Some(Agent {
+                        pos: neighbor_pos,
+                        keys: agent.keys,
+                    }),
+                    Cell::Wall | Cell::Door(_) => None,
                 }
             })
             .map(|character| (character, 1))
@@ -152,8 +243,8 @@ fn part_one(input: &str) -> usize {
         // println!("successors of {:?} are {:?}", character, succ);
         succ
     };
-    let heuristic = |character: &Character| num_keys - character.keys.count_ones() as usize;
-    let success = |character: &Character| character.keys.count_ones() as usize == num_keys;
+    let heuristic = |character: &Agent| num_keys - character.keys.count_ones() as usize;
+    let success = |character: &Agent| character.keys.count_ones() as usize == num_keys;
 
     let (path, path_len) = astar(&start, successors, heuristic, success).unwrap();
     for character in path {
