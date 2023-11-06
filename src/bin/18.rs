@@ -215,16 +215,15 @@ fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
 #[derive(Debug, Clone, Copy)]
 struct ReachableKey {
     pos: Point,
-    floor_key: KeySet,
     distance: u32,
+    floor_keys: KeySet,
     required_door_keys: KeySet,
 }
 
 fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
-    let key = grid_get(grid, pos).floor_key();
     let start = ReachableKey {
         pos,
-        floor_key: key,
+        floor_keys: grid_get(grid, pos).floor_key(),
         distance: 0,
         required_door_keys: KeySet::default(),
     };
@@ -235,11 +234,11 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
             if !explored.insert(pos) {
                 continue; // already explored
             }
-            let key = cell.floor_key();
+            let floor_keys = node.floor_keys.union(cell.floor_key());
             let required_keys = node.required_door_keys.union(cell.door_key());
             successors.push(ReachableKey {
                 pos,
-                floor_key: key,
+                floor_keys,
                 distance: node.distance + 1,
                 required_door_keys: required_keys,
             })
@@ -255,7 +254,8 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
         queue.push_back(node);
     }
     while let Some(node) = queue.pop_front() {
-        if !node.floor_key.is_empty() {
+        if !grid_get(grid, node.pos).floor_key().is_empty() {
+            assert!(!node.floor_keys.is_empty());
             reachable.push(node);
         }
         let successors = successors(&node, &mut explored);
@@ -326,7 +326,7 @@ fn compute_graph(grid: &Grid) -> Graph {
         graph.nodes.insert(
             node.pos,
             Node {
-                cell: Cell::Key(node.floor_key),
+                cell: grid_get(grid, node.pos),
                 reachable,
             },
         );
@@ -395,10 +395,10 @@ fn solve_graph(graph: &Graph) -> u32 {
                 .reachable
                 .iter()
                 .filter(|reachable| agent.keys.contains(reachable.required_door_keys))
-                .filter(|reachable| !agent.keys.contains(reachable.floor_key))
+                .filter(|reachable| !agent.keys.contains(reachable.floor_keys))
             {
                 let positions = copy_and_change_point(&agent.positions, agent_index, reachable.pos);
-                let keys = agent.keys.union(reachable.floor_key);
+                let keys = agent.keys.union(reachable.floor_keys);
                 let agent = Agent { positions, keys };
                 let distance = reachable.distance;
                 successors.push((agent, distance));
