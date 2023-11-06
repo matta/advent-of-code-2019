@@ -3,7 +3,7 @@ use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Point2D<T> {
     pub x: T,
     pub y: T,
@@ -53,5 +53,11 @@ impl<T: Sub<Output = T>> Sub for Point2D<T> {
 impl<T: fmt::Display> fmt::Display for Point2D<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
+impl<T: fmt::Display> fmt::Debug for Point2D<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

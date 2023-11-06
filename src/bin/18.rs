@@ -37,6 +37,10 @@ impl KeySet {
         self.mask.count_ones()
     }
 
+    fn is_empty(&self) -> bool {
+        self.mask == 0
+    }
+
     fn union(&self, other: KeySet) -> KeySet {
         KeySet {
             mask: self.mask | other.mask,
@@ -84,6 +88,22 @@ enum Cell {
     Entrance,
     Open,
     Wall,
+}
+
+impl Cell {
+    fn floor_key(&self) -> KeySet {
+        match self {
+            Cell::Key(key) => *key,
+            _ => KeySet::default(),
+        }
+    }
+
+    fn door_key(&self) -> KeySet {
+        match self {
+            Cell::Door(key) => *key,
+            _ => KeySet::default(),
+        }
+    }
 }
 
 impl TryFrom<char> for Cell {
@@ -193,36 +213,35 @@ fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ReachableNode {
+struct ReachableKey {
     pos: Point,
-    cell: Cell,
+    floor_key: KeySet,
     distance: u32,
-    required_keys: KeySet,
+    required_door_keys: KeySet,
 }
 
-fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableNode> {
-    let start = ReachableNode {
+fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
+    let key = grid_get(grid, pos).floor_key();
+    let start = ReachableKey {
         pos,
-        cell: grid_get(grid, pos),
+        floor_key: key,
         distance: 0,
-        required_keys: KeySet::default(),
+        required_door_keys: KeySet::default(),
     };
 
-    let successors = |node: &ReachableNode, explored: &mut HashSet<Point>| {
+    let successors = |node: &ReachableKey, explored: &mut HashSet<Point>| {
         let mut successors = Vec::new();
         for (cell, pos) in grid_get_non_wall_neighbors(grid, node.pos) {
             if !explored.insert(pos) {
                 continue; // already explored
             }
-            let required_keys = match cell {
-                Cell::Door(key) => node.required_keys.union(key),
-                _ => node.required_keys,
-            };
-            successors.push(ReachableNode {
+            let key = cell.floor_key();
+            let required_keys = node.required_door_keys.union(cell.door_key());
+            successors.push(ReachableKey {
                 pos,
-                cell,
+                floor_key: key,
                 distance: node.distance + 1,
-                required_keys,
+                required_door_keys: required_keys,
             })
         }
         successors
@@ -236,13 +255,12 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableNode> {
         queue.push_back(node);
     }
     while let Some(node) = queue.pop_front() {
-        if matches!(node.cell, Cell::Key(_) | Cell::Door(_)) {
+        if !node.floor_key.is_empty() {
             reachable.push(node);
-        } else {
-            let successors = successors(&node, &mut explored);
-            for succ in successors {
-                queue.push_back(succ);
-            }
+        }
+        let successors = successors(&node, &mut explored);
+        for succ in successors {
+            queue.push_back(succ);
         }
     }
 
@@ -251,7 +269,7 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableNode> {
 
 struct Node {
     cell: Cell,
-    reachable: Vec<ReachableNode>,
+    reachable: Vec<ReachableKey>,
 }
 
 #[derive(Default)]
@@ -308,7 +326,7 @@ fn compute_graph(grid: &Grid) -> Graph {
         graph.nodes.insert(
             node.pos,
             Node {
-                cell: node.cell,
+                cell: Cell::Key(node.floor_key),
                 reachable,
             },
         );
@@ -318,7 +336,8 @@ fn compute_graph(grid: &Grid) -> Graph {
 }
 
 fn parse_graph(input: &str) -> Graph {
-    if false {
+    let trace = false;
+    if trace {
         println!("input:\n{}", input);
     }
     let grid = parse_grid(input);
@@ -333,7 +352,7 @@ fn parse_graph(input: &str) -> Graph {
 
     let graph = compute_graph(&grid);
 
-    if false {
+    if trace {
         println!("as graph:");
         for (pos, node) in &graph.nodes {
             println!("   pos: {} cell: {:?}", pos, node.cell);
@@ -366,21 +385,19 @@ fn solve_graph(graph: &Graph) -> u32 {
     let mut count = 0;
     let successors = |agent: &Agent| -> Vec<(Agent, u32)> {
         count += 1;
-        if true {
+        if true && count % 100_000 == 0 {
             println!("[{}] successors of {}", count, agent);
         }
         let mut successors = Vec::new();
         for (agent_index, &agent_pos) in agent.points.iter().enumerate() {
             let node = graph.nodes.get(&agent_pos).unwrap();
             for reachable in node.reachable.iter() {
-                if !agent.keys.contains(reachable.required_keys) {
+                if !agent.keys.contains(reachable.required_door_keys)
+                    || agent.keys.contains(reachable.floor_key)
+                {
                     continue;
                 }
-                let keys = match reachable.cell {
-                    Cell::Key(key) => agent.keys.union(key),
-                    _ => agent.keys,
-                };
-
+                let keys = agent.keys.union(reachable.floor_key);
                 let positions = copy_and_change_point(&agent.points, agent_index, reachable.pos);
                 let successor_agent = Agent {
                     points: positions,
