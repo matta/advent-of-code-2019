@@ -47,8 +47,20 @@ impl KeySet {
         }
     }
 
+    fn intersection(&self, other: KeySet) -> KeySet {
+        KeySet {
+            mask: self.mask & other.mask,
+        }
+    }
+
+    fn difference(&self, other: KeySet) -> KeySet {
+        KeySet {
+            mask: self.mask & !other.mask,
+        }
+    }
+
     fn contains(&self, other: KeySet) -> bool {
-        (self.mask & other.mask) == other.mask
+        self.intersection(other) == other
     }
 }
 
@@ -146,11 +158,7 @@ impl fmt::Display for Agent {
         // operation succeeded or failed. Note that `write!` uses syntax which
         // is very similar to `println!`.
         write!(f, "<{:?} ", self.positions)?;
-        for ch in 'A'..='Z' {
-            let key: KeySet = ch.try_into().unwrap();
-            let c = if self.keys.contains(key) { ch } else { '.' };
-            write!(f, "{}", c)?;
-        }
+        write!(f, "{:?}", self.keys)?;
         write!(f, ">")
     }
 }
@@ -220,16 +228,16 @@ fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
 struct ReachableKey {
     pos: Point,
     distance: u32,
-    floor_keys: KeySet,
-    required_door_keys: KeySet,
+    keys: KeySet,
+    required_keys: KeySet,
 }
 
 fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
     let start = ReachableKey {
         pos,
-        floor_keys: grid_get(grid, pos).floor_key(),
+        keys: grid_get(grid, pos).floor_key(),
         distance: 0,
-        required_door_keys: KeySet::default(),
+        required_keys: KeySet::default(),
     };
 
     let successors = |node: &ReachableKey, explored: &mut HashSet<Point>| {
@@ -238,13 +246,13 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
             if !explored.insert(pos) {
                 continue; // already explored
             }
-            let floor_keys = node.floor_keys.union(cell.floor_key());
-            let required_keys = node.required_door_keys.union(cell.door_key());
+            let floor_keys = node.keys.union(cell.floor_key());
+            let required_keys = node.required_keys.union(cell.door_key());
             successors.push(ReachableKey {
                 pos,
-                floor_keys,
+                keys: floor_keys,
                 distance: node.distance + 1,
-                required_door_keys: required_keys,
+                required_keys,
             })
         }
         successors
@@ -259,7 +267,7 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
     }
     while let Some(node) = queue.pop_front() {
         if !grid_get(grid, node.pos).floor_key().is_empty() {
-            assert!(!node.floor_keys.is_empty());
+            assert!(!node.keys.is_empty());
             reachable.push(node);
         }
         let successors = successors(&node, &mut explored);
@@ -271,6 +279,7 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
     reachable
 }
 
+#[derive(Debug)]
 struct Node {
     cell: Cell,
     reachable: Vec<ReachableKey>,
@@ -383,14 +392,22 @@ fn solve_graph(graph: &Graph) -> u32 {
         let mut successors = Vec::new();
         for (agent_index, &agent_pos) in agent.positions.iter().enumerate() {
             let node = graph.nodes.get(&agent_pos).unwrap();
-            for reachable in node
-                .reachable
-                .iter()
-                .filter(|reachable| agent.keys.contains(reachable.required_door_keys))
-                .filter(|reachable| !agent.keys.contains(reachable.floor_keys))
-            {
+            for reachable in node.reachable.iter() {
+                // Ignore positions where we lack the required keys to get there from here.
+                if !agent.keys.contains(reachable.required_keys) {
+                    continue;
+                }
+
+                // Minmize the state transitions to those that gain one key. If
+                // we gain no keys there is no point in moving to the position. If we gain more
+                // than one key there must be an alternative position that gains only one.
+                let added_keys = reachable.keys.difference(agent.keys);
+                if added_keys.len() != 1 {
+                    continue;
+                }
+
+                let keys = agent.keys.union(reachable.keys);
                 let positions = copy_and_change_point(&agent.positions, agent_index, reachable.pos);
-                let keys = agent.keys.union(reachable.floor_keys);
                 let agent = Agent { positions, keys };
                 let distance = reachable.distance;
                 successors.push((agent, distance));
@@ -402,7 +419,7 @@ fn solve_graph(graph: &Graph) -> u32 {
     let success = |character: &Agent| character.keys.len() == num_keys;
 
     let path_len = {
-        let (path, path_len) = dijkstra(&start, successors, success).unwrap();
+        let (path, path_len) = dijkstra(&start, successors, success).expect("no path found");
         if false {
             for character in path {
                 println!("path = {}", character)
@@ -514,6 +531,12 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_key_set_default() {
+        assert_eq!(KeySet::default().mask, 0);
+        assert_eq!(format!("{:?}", KeySet::default()), "{}");
+    }
 
     #[test]
     fn test_part_one_a() {
