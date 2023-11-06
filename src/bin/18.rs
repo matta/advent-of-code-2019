@@ -156,6 +156,10 @@ impl fmt::Display for Agent {
 }
 
 fn parse_grid(input: &str) -> Grid {
+    let trace = false;
+    if trace {
+        println!("input:\n{}", input);
+    }
     let grid: Grid = input
         .trim()
         .split_ascii_whitespace()
@@ -332,26 +336,7 @@ fn compute_graph(grid: &Grid) -> Graph {
         );
     }
 
-    graph
-}
-
-fn parse_graph(input: &str) -> Graph {
     let trace = false;
-    if trace {
-        println!("input:\n{}", input);
-    }
-    let grid = parse_grid(input);
-    let num_keys = grid
-        .iter()
-        .flatten()
-        .filter(|ch| matches!(ch, Cell::Key(_)))
-        .count();
-    if false {
-        println!("num_keys {:?}", num_keys);
-    }
-
-    let graph = compute_graph(&grid);
-
     if trace {
         println!("as graph:");
         for (pos, node) in &graph.nodes {
@@ -361,6 +346,13 @@ fn parse_graph(input: &str) -> Graph {
             }
         }
     }
+
+    graph
+}
+
+fn parse_graph(input: &str) -> Graph {
+    let grid = parse_grid(input);
+    let graph = compute_graph(&grid);
 
     graph
 }
@@ -428,11 +420,6 @@ fn solve_graph(graph: &Graph) -> u32 {
     path_len
 }
 
-fn part_one(input: &str) -> u32 {
-    let graph = parse_graph(input);
-    solve_graph(&graph)
-}
-
 // Return the grid as a vector of (Point, Cell). This simplifies some code
 // of performance.  When rust stabilizes generators they will be preferable
 // in situations like this.  It is also possible to return an iterator, but
@@ -489,11 +476,26 @@ fn fix_for_part_two(grid: &mut Grid) {
     }
 }
 
-fn part_two(input: &str) -> u32 {
+enum Part {
+    One,
+    Two,
+}
+
+fn solve_part(input: &str, part: Part) -> u32 {
     let mut grid = parse_grid(input);
-    fix_for_part_two(&mut grid);
+    if matches!(part, Part::Two) {
+        fix_for_part_two(&mut grid);
+    }
     let graph = compute_graph(&grid);
     solve_graph(&graph)
+}
+
+fn part_one(input: &str) -> u32 {
+    solve_part(input, Part::One)
+}
+
+fn part_two(input: &str) -> u32 {
+    solve_part(input, Part::Two)
 }
 
 fn run_part_one() {
