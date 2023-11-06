@@ -129,7 +129,7 @@ impl TryFrom<char> for Cell {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
-    points: Vec<Point>,
+    positions: Vec<Point>,
     keys: KeySet,
 }
 
@@ -145,7 +145,7 @@ impl fmt::Display for Agent {
         // stream: `f`. Returns `fmt::Result` which indicates whether the
         // operation succeeded or failed. Note that `write!` uses syntax which
         // is very similar to `println!`.
-        write!(f, "<{:?} ", self.points)?;
+        write!(f, "<{:?} ", self.positions)?;
         for ch in 'A'..='Z' {
             let key: KeySet = ch.try_into().unwrap();
             let c = if self.keys.contains(key) { ch } else { '.' };
@@ -368,7 +368,7 @@ fn parse_graph(input: &str) -> Graph {
 fn solve_graph(graph: &Graph) -> u32 {
     let entry_points = graph.entry_points();
     let start = Agent {
-        points: entry_points,
+        positions: entry_points,
         keys: KeySet::default(),
     };
 
@@ -389,22 +389,19 @@ fn solve_graph(graph: &Graph) -> u32 {
             println!("[{}] successors of {}", count, agent);
         }
         let mut successors = Vec::new();
-        for (agent_index, &agent_pos) in agent.points.iter().enumerate() {
+        for (agent_index, &agent_pos) in agent.positions.iter().enumerate() {
             let node = graph.nodes.get(&agent_pos).unwrap();
-            for reachable in node.reachable.iter() {
-                if !agent.keys.contains(reachable.required_door_keys)
-                    || agent.keys.contains(reachable.floor_key)
-                {
-                    continue;
-                }
+            for reachable in node
+                .reachable
+                .iter()
+                .filter(|reachable| agent.keys.contains(reachable.required_door_keys))
+                .filter(|reachable| !agent.keys.contains(reachable.floor_key))
+            {
+                let positions = copy_and_change_point(&agent.positions, agent_index, reachable.pos);
                 let keys = agent.keys.union(reachable.floor_key);
-                let positions = copy_and_change_point(&agent.points, agent_index, reachable.pos);
-                let successor_agent = Agent {
-                    points: positions,
-                    keys,
-                };
-                let successor_distance = reachable.distance;
-                successors.push((successor_agent, successor_distance));
+                let agent = Agent { positions, keys };
+                let distance = reachable.distance;
+                successors.push((agent, distance));
             }
         }
         successors
