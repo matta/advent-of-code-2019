@@ -109,7 +109,7 @@ impl TryFrom<char> for Cell {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
-    pos: Point,
+    points: Vec<Point>,
     keys: KeySet,
 }
 
@@ -125,7 +125,7 @@ impl fmt::Display for Agent {
         // stream: `f`. Returns `fmt::Result` which indicates whether the
         // operation succeeded or failed. Note that `write!` uses syntax which
         // is very similar to `println!`.
-        write!(f, "<{} ", self.pos)?;
+        write!(f, "<{:?} ", self.points)?;
         for ch in 'A'..='Z' {
             let key: KeySet = ch.try_into().unwrap();
             let c = if self.keys.contains(key) { ch } else { '.' };
@@ -135,24 +135,7 @@ impl fmt::Display for Agent {
     }
 }
 
-#[cfg(test)]
-#[test]
-fn test_character_keys() {
-    let mut c = Agent::new();
-    assert_eq!(format!("{}", c), "<(0, 0) ..........................>");
-
-    assert_eq!(false, c.keys.contains('A'.try_into().unwrap()));
-    c.keys = c.keys.union('a'.try_into().unwrap());
-    assert_eq!(true, c.keys.contains('A'.try_into().unwrap()));
-    assert_eq!(format!("{}", c), "<(0, 0) A.........................>");
-
-    assert_eq!(false, c.keys.contains('Z'.try_into().unwrap()));
-    c.keys = c.keys.union('z'.try_into().unwrap());
-    assert_eq!(true, c.keys.contains('Z'.try_into().unwrap()));
-    assert_eq!(format!("{}", c), "<(0, 0) A........................Z>");
-}
-
-fn parse_input(input: &str) -> (Grid, Agent) {
+fn parse_grid(input: &str) -> Grid {
     let grid: Grid = input
         .trim()
         .split_ascii_whitespace()
@@ -168,21 +151,7 @@ fn parse_input(input: &str) -> (Grid, Agent) {
         })
         .collect();
 
-    for (y, row) in grid.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
-            if matches!(cell, Cell::Entrance) {
-                return (
-                    grid,
-                    Agent {
-                        pos: Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
-                        keys: KeySet::default(),
-                    },
-                );
-            }
-        }
-    }
-
-    unreachable!("grid had no entrance!")
+    grid
 }
 
 fn grid_get(grid: &Grid, pos: Point) -> Cell {
@@ -352,14 +321,13 @@ fn parse_graph(input: &str) -> Graph {
     if false {
         println!("input:\n{}", input);
     }
-    let (grid, start) = parse_input(input);
+    let grid = parse_grid(input);
     let num_keys = grid
         .iter()
         .flatten()
         .filter(|ch| matches!(ch, Cell::Key(_)))
         .count();
     if false {
-        println!("start {:?}", start);
         println!("num_keys {:?}", num_keys);
     }
 
@@ -378,49 +346,51 @@ fn parse_graph(input: &str) -> Graph {
     graph
 }
 
-fn part_one(input: &str) -> u32 {
-    let graph = parse_graph(input);
+fn solve_graph(graph: &Graph) -> u32 {
     let entry_points = graph.entry_points();
-    assert_eq!(entry_points.len(), 1);
     let start = Agent {
-        pos: entry_points[0],
+        points: entry_points,
         keys: KeySet::default(),
     };
 
     let num_keys = graph.num_keys();
 
+    let copy_and_change_point = |positions: &Vec<Point>, index: usize, pos: Point| {
+        positions
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| if i == index { pos } else { p })
+            .collect()
+    };
+
     let mut count = 0;
     let successors = |agent: &Agent| -> Vec<(Agent, u32)> {
         count += 1;
-        if false && count % 10_000 == 0 {
+        if true {
             println!("[{}] successors of {}", count, agent);
         }
-        if let Some(node) = graph.nodes.get(&agent.pos) {
-            let succ = node
-                .reachable
-                .iter()
-                .filter_map(|reachable| {
-                    if !agent.keys.contains(reachable.required_keys) {
-                        return None;
-                    }
-                    let keys = match reachable.cell {
-                        Cell::Key(key) => agent.keys.union(key),
-                        _ => agent.keys,
-                    };
-                    Some((
-                        Agent {
-                            pos: reachable.pos,
-                            keys,
-                        },
-                        reachable.distance,
-                    ))
-                })
-                .collect();
-            // println!("  => {:?}", succ);
-            succ
-        } else {
-            unreachable!()
+        let mut successors = Vec::new();
+        for (agent_index, &agent_pos) in agent.points.iter().enumerate() {
+            let node = graph.nodes.get(&agent_pos).unwrap();
+            for reachable in node.reachable.iter() {
+                if !agent.keys.contains(reachable.required_keys) {
+                    continue;
+                }
+                let keys = match reachable.cell {
+                    Cell::Key(key) => agent.keys.union(key),
+                    _ => agent.keys,
+                };
+
+                let positions = copy_and_change_point(&agent.points, agent_index, reachable.pos);
+                let successor_agent = Agent {
+                    points: positions,
+                    keys,
+                };
+                let successor_distance = reachable.distance;
+                successors.push((successor_agent, successor_distance));
+            }
         }
+        successors
     };
 
     let success = |character: &Agent| character.keys.len() == num_keys;
@@ -436,7 +406,7 @@ fn part_one(input: &str) -> u32 {
     };
     if true {
         println!(
-            "path length: {:?}; took {} computed successors",
+            "path length: {:?}\ntook {} computed successors",
             path_len, count
         );
     }
@@ -444,8 +414,85 @@ fn part_one(input: &str) -> u32 {
     path_len
 }
 
-fn main() {
+fn part_one(input: &str) -> u32 {
+    let graph = parse_graph(input);
+    solve_graph(&graph)
+}
+
+// Return the grid as a vector of (Point, Cell). This simplifies some code
+// of performance.  When rust stabilizes generators they will be preferable
+// in situations like this.  It is also possible to return an iterator, but
+// the code is much more complex.  See:
+// https://stackoverflow.com/a/30685840/2442218
+fn grid_points(grid: &Grid) -> Vec<(Point, Cell)> {
+    grid.iter()
+        .enumerate()
+        .flat_map(|(y, row)| {
+            row.iter().enumerate().map(move |(x, cell)| {
+                (
+                    Point::new(y.try_into().unwrap(), y.try_into().unwrap()),
+                    *cell,
+                )
+            })
+        })
+        .collect()
+}
+
+fn fix_for_part_two(grid: &mut Grid) {
+    let entrances: Vec<Point> = grid_points(grid)
+        .iter()
+        .filter_map(|(pos, cell)| {
+            if matches!(*cell, Cell::Entrance) {
+                Some(*pos)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Do the transform only if there is a single entrance.
+    if entrances.len() == 1 {
+        let entry_point = entrances[0];
+
+        let mut set = |x: i32, y: i32, cell: Cell| {
+            let x: usize = x.try_into().unwrap();
+            let y: usize = y.try_into().unwrap();
+            grid[y][x] = cell;
+        };
+
+        let x = entry_point.x;
+        let y = entry_point.y;
+
+        set(y - 1, x - 1, Cell::Entrance);
+        set(y - 1, x, Cell::Wall);
+        set(y - 1, x + 1, Cell::Entrance);
+        set(y, x - 1, Cell::Wall);
+        set(y, x, Cell::Wall);
+        set(y, x + 1, Cell::Wall);
+        set(y + 1, x - 1, Cell::Entrance);
+        set(y + 1, x, Cell::Wall);
+        set(y + 1, x + 1, Cell::Entrance);
+    }
+}
+
+fn part_two(input: &str) -> u32 {
+    let mut grid = parse_grid(input);
+    fix_for_part_two(&mut grid);
+    let graph = compute_graph(&grid);
+    solve_graph(&graph)
+}
+
+fn run_part_one() {
     assert_eq!(part_one(INPUT), 4770);
+}
+
+fn run_part_two() {
+    assert_eq!(part_two(INPUT), 1578);
+}
+
+fn main() {
+    run_part_one();
+    run_part_two();
 }
 
 #[cfg(test)]
@@ -468,7 +515,32 @@ mod tests {
     }
 
     #[test]
-    fn test_main() {
-        main();
+    fn test_part_two_a() {
+        assert_eq!(8, part_two(include_str!("../examples/18d.txt")));
+    }
+
+    #[test]
+    fn test_part_two_b() {
+        assert_eq!(24, part_two(include_str!("../examples/18e.txt")));
+    }
+
+    #[test]
+    fn test_part_two_c() {
+        assert_eq!(32, part_two(include_str!("../examples/18f.txt")));
+    }
+
+    #[test]
+    fn test_part_two_d() {
+        assert_eq!(72, part_two(include_str!("../examples/18g.txt")));
+    }
+
+    #[test]
+    fn test_part_one() {
+        run_part_one();
+    }
+
+    #[test]
+    fn test_part_two() {
+        run_part_two();
     }
 }
