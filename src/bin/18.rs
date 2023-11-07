@@ -1,4 +1,12 @@
+// Insights:
+//
+// Simplification of the graph through edge compression is key.  The original
+// maze is presented as a grid.  If we consider this to be a graph with edge
+// weights 1, we can remove all empty squares and adjust edge weights upward to
+// account for this.  This dramatically reduces run time.
+//
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 use std::hash::Hash;
@@ -12,7 +20,7 @@ const INPUT: &str = include_str!("../inputs/18.txt");
 type Point = Point2D<i32>;
 type Grid = Vec<Vec<Cell>>;
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct KeySet {
     mask: u32,
 }
@@ -91,7 +99,7 @@ impl TryFrom<char> for KeySet {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Cell {
     Key(KeySet),
     Door(KeySet),
@@ -208,93 +216,6 @@ fn grid_get(grid: &Grid, pos: Point) -> Cell {
         .unwrap_or(Cell::Wall)
 }
 
-fn grid_is_wall(grid: &Grid, pos: Point) -> bool {
-    match grid_get(grid, pos) {
-        Cell::Wall => true,
-        Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_) => false,
-    }
-}
-
-fn grid_get_non_wall_neighbors(grid: &Grid, pos: Point) -> Vec<(Cell, Point)> {
-    let mut neighbors = Vec::new();
-
-    if !grid_is_wall(grid, pos) {
-        let directions: [Point; 4] = [
-            Point::new(0, -1),
-            Point::new(0, 1),
-            Point::new(-1, 0),
-            Point::new(1, 0),
-        ];
-
-        for neighbor_dir in directions {
-            let neighbor_pos = pos + neighbor_dir;
-            if !grid_is_wall(grid, neighbor_pos) {
-                neighbors.push((grid_get(grid, neighbor_pos), neighbor_pos));
-            }
-        }
-    }
-
-    neighbors
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ReachableKey {
-    pos: Point,
-    distance: u32,
-    keys: KeySet,
-    required_keys: KeySet,
-}
-
-fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
-    let start = ReachableKey {
-        pos,
-        keys: grid_get(grid, pos).floor_key(),
-        distance: 0,
-        required_keys: KeySet::default(),
-    };
-
-    let mut explored: Vec<Vec<bool>> = grid
-        .iter()
-        .map(|row| {
-            row.iter()
-                .map(|cell| match *cell {
-                    Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_) => false,
-                    Cell::Wall => true,
-                })
-                .collect()
-        })
-        .collect();
-
-    let mut queue = VecDeque::new();
-    let mut reachable = Vec::new();
-    queue.push_back(start);
-    while let Some(node) = queue.pop_front() {
-        if !grid_get(grid, node.pos).floor_key().is_empty() {
-            assert!(!node.keys.is_empty());
-            reachable.push(node);
-        }
-        for (cell, pos) in grid_get_non_wall_neighbors(grid, node.pos) {
-            let y: usize = pos.y.try_into().unwrap();
-            let x: usize = pos.x.try_into().unwrap();
-            if explored[y][x] {
-                continue;
-            }
-            explored[y][x] = true;
-
-            let floor_keys = node.keys.union(cell.floor_key());
-            let required_keys = node.required_keys.union(cell.door_key());
-            queue.push_back(ReachableKey {
-                pos,
-                keys: floor_keys,
-                distance: node.distance + 1,
-                required_keys,
-            })
-        }
-    }
-
-    reachable
-}
-
 #[derive(Debug)]
 struct Node {
     cell: Cell,
@@ -327,38 +248,178 @@ impl Graph {
     }
 }
 
-fn compute_graph(grid: &Grid) -> Graph {
-    let mut graph: Graph = Graph::default();
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EdgeNode {
+    pos: Point,
+    cell: Cell,
+}
 
-    let mut queue = VecDeque::new();
+type EdgesFromNodeMap = BTreeMap<EdgeNode, u32>;
+type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeMap>;
+
+#[allow(dead_code)]
+fn print_nodes(edges: &EdgeNodeMap, phase: &str) {
+    println!("\nEDGES for phase {}:", phase);
+    for (node, node_edges) in edges.iter() {
+        println!("{:?}", node);
+        for edge in node_edges {
+            println!("            {:?}", edge);
+        }
+    }
+}
+
+fn compute_all_edges(grid: &Grid) -> EdgeNodeMap {
+    let mut nodes = BTreeMap::new();
+
+    let directions: [Point; 4] = [
+        Point::new(0, -1),
+        Point::new(0, 1),
+        Point::new(-1, 0),
+        Point::new(1, 0),
+    ];
 
     for (y, row) in grid.iter().enumerate() {
         for (x, &cell) in row.iter().enumerate() {
+            if matches!(cell, Cell::Wall) {
+                continue;
+            }
             let pos = Point::new(x.try_into().unwrap(), y.try_into().unwrap());
-            if matches!(cell, Cell::Entrance) {
-                let reachable = compute_reachable(grid, pos);
-                for node in &reachable {
-                    queue.push_back(*node);
+            let node = EdgeNode { pos, cell };
+            let mut edges = BTreeMap::default();
+
+            for dest_pos in directions.iter().map(|dir| pos + *dir) {
+                let dest_cell = grid_get(grid, dest_pos);
+                if matches!(dest_cell, Cell::Wall) {
+                    continue;
                 }
-                graph.nodes.insert(pos, Node { cell, reachable });
+
+                edges.insert(
+                    EdgeNode {
+                        pos: dest_pos,
+                        cell: dest_cell,
+                    },
+                    1,
+                );
+            }
+
+            if !edges.is_empty() {
+                nodes.insert(node, edges);
             }
         }
     }
 
-    while let Some(node) = queue.pop_front() {
-        let reachable = compute_reachable(grid, node.pos);
-        for node in &reachable {
-            if !graph.nodes.contains_key(&node.pos) {
-                queue.push_back(*node);
+    nodes
+}
+
+fn compress_edges(nodes: &EdgeNodeMap) -> EdgeNodeMap {
+    let keep_nodes: Vec<EdgeNode> = nodes
+        .keys()
+        .filter(|e| e.cell != Cell::Open)
+        .copied()
+        .collect();
+    let mut compressed_nodes = EdgeNodeMap::new();
+    for keep_node in keep_nodes {
+        let mut edges = EdgesFromNodeMap::new();
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        queue.push_back((keep_node, 0_u32));
+        while let Some((src, src_weight)) = queue.pop_front() {
+            visited.insert(src);
+            for (dst, dst_weight) in nodes.get(&src).unwrap().iter() {
+                if visited.contains(dst) {
+                    continue;
+                }
+                let weight = src_weight + dst_weight;
+                if dst.cell == Cell::Open || dst.cell == Cell::Entrance {
+                    queue.push_back((*dst, weight));
+                } else {
+                    edges.insert(*dst, weight);
+                }
             }
         }
-        graph.nodes.insert(
-            node.pos,
-            Node {
-                cell: grid_get(grid, node.pos),
-                reachable,
-            },
-        );
+        compressed_nodes.insert(keep_node, edges);
+    }
+    compressed_nodes
+}
+
+fn compute_edges(grid: &Grid) -> EdgeNodeMap {
+    let edges = compute_all_edges(grid);
+    // print_edges(&edges, "all edges");
+    let edges = compress_edges(&edges);
+    // print_nodes(&edges, "compressed edges");
+    edges
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ReachableKey {
+    pos: Point,
+    cell: Cell,
+    distance: u32,
+    keys: KeySet,
+    required_keys: KeySet,
+}
+
+fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<ReachableKey> {
+    let start = ReachableKey {
+        pos: start_node.pos,
+        cell: start_node.cell,
+        keys: start_node.cell.floor_key(),
+        distance: 0,
+        required_keys: KeySet::default(),
+    };
+    let mut queue = VecDeque::new();
+    queue.push_back(start);
+
+    let mut explored = HashSet::new();
+    explored.insert(start.pos);
+
+    let mut reachable = Vec::new();
+    while let Some(node) = queue.pop_front() {
+        if !node.cell.floor_key().is_empty() {
+            reachable.push(node);
+        }
+        let node_edges = edges
+            .get(&EdgeNode {
+                pos: node.pos,
+                cell: node.cell,
+            })
+            .unwrap();
+
+        for (edge_node, weight) in node_edges.iter() {
+            if !explored.insert(edge_node.pos) {
+                continue;
+            }
+
+            let cell = edge_node.cell;
+            let floor_keys = node.keys.union(cell.floor_key());
+            let required_keys = node.required_keys.union(cell.door_key());
+            queue.push_back(ReachableKey {
+                pos: edge_node.pos,
+                cell,
+                keys: floor_keys,
+                distance: node.distance + weight,
+                required_keys,
+            })
+        }
+    }
+
+    reachable
+}
+
+fn compute_graph(edges: &EdgeNodeMap) -> Graph {
+    let mut graph: Graph = Graph::default();
+
+    for node in edges.keys() {
+        if matches!(node.cell, Cell::Entrance | Cell::Key(_)) {
+            let reachable = compute_reachable(edges, node);
+            graph.nodes.insert(
+                node.pos,
+                Node {
+                    cell: node.cell,
+                    reachable,
+                },
+            );
+        }
     }
 
     let trace = false;
@@ -504,15 +565,22 @@ fn solve_part(input: &str, part: Part) -> u32 {
         fix_for_part_two(&mut grid);
     }
     let parse_duration = start.elapsed();
+
     start = Instant::now();
-    let graph = compute_graph(&grid);
+    let nodes = compute_edges(&grid);
+    let edges_duration = start.elapsed();
+
+    start = Instant::now();
+    let graph = compute_graph(&nodes);
     let graph_duration = start.elapsed();
+
     start = Instant::now();
     let path_length = solve_graph(&graph);
     let solve_duration = start.elapsed();
+
     println!(
-        "parse_duration {:#?} graph_duration {:?} solve_duration {:?}",
-        parse_duration, graph_duration, solve_duration
+        "parse_duration {:#?} edges_duration {:?} graph_duration {:?} solve_duration {:?}",
+        parse_duration, edges_duration, graph_duration, solve_duration
     );
     path_length
 }
