@@ -1,10 +1,8 @@
-#![allow(dead_code, unused_variables)]
-
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fmt;
 use std::hash::Hash;
+use std::time::Instant;
 
 use aoc2019::point::Point2D;
 use pathfinding::prelude::dijkstra;
@@ -141,13 +139,30 @@ impl TryFrom<char> for Cell {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
-    positions: Vec<Point>,
     keys: KeySet,
+    positions: [Point; 4],
+    len: usize,
 }
 
 impl Agent {
-    fn new() -> Agent {
-        Agent::default()
+    fn new(keys: KeySet, positions: &[Point]) -> Agent {
+        let mut agent = Agent {
+            keys,
+            len: positions.len(),
+            ..Default::default()
+        };
+        for i in 0..positions.len() {
+            agent.positions[i] = positions[i];
+        }
+        agent
+    }
+
+    fn positions(&self) -> &[Point] {
+        &self.positions[0..self.len]
+    }
+
+    fn set_pos(&mut self, index: usize, point: Point) {
+        self.positions[index] = point;
     }
 }
 
@@ -171,11 +186,9 @@ fn parse_grid(input: &str) -> Grid {
     let grid: Grid = input
         .trim()
         .split_ascii_whitespace()
-        .enumerate()
-        .map(|(y, line)| {
+        .map(|line| {
             line.chars()
-                .enumerate()
-                .map(|(x, ch)| {
+                .map(|ch| {
                     let cell: Cell = ch.try_into().unwrap();
                     cell
                 })
@@ -198,7 +211,7 @@ fn grid_get(grid: &Grid, pos: Point) -> Cell {
 fn grid_is_wall(grid: &Grid, pos: Point) -> bool {
     match grid_get(grid, pos) {
         Cell::Wall => true,
-        cell @ (Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_)) => false,
+        Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_) => false,
     }
 }
 
@@ -240,39 +253,42 @@ fn compute_reachable(grid: &Grid, pos: Point) -> Vec<ReachableKey> {
         required_keys: KeySet::default(),
     };
 
-    let successors = |node: &ReachableKey, explored: &mut HashSet<Point>| {
-        let mut successors = Vec::new();
-        for (cell, pos) in grid_get_non_wall_neighbors(grid, node.pos) {
-            if !explored.insert(pos) {
-                continue; // already explored
-            }
-            let floor_keys = node.keys.union(cell.floor_key());
-            let required_keys = node.required_keys.union(cell.door_key());
-            successors.push(ReachableKey {
-                pos,
-                keys: floor_keys,
-                distance: node.distance + 1,
-                required_keys,
-            })
-        }
-        successors
-    };
+    let mut explored: Vec<Vec<bool>> = grid
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(|cell| match *cell {
+                    Cell::Open | Cell::Entrance | Cell::Key(_) | Cell::Door(_) => false,
+                    Cell::Wall => true,
+                })
+                .collect()
+        })
+        .collect();
 
     let mut queue = VecDeque::new();
-    let mut explored = HashSet::new();
     let mut reachable = Vec::new();
-    explored.insert(pos);
-    for node in successors(&start, &mut explored) {
-        queue.push_back(node);
-    }
+    queue.push_back(start);
     while let Some(node) = queue.pop_front() {
         if !grid_get(grid, node.pos).floor_key().is_empty() {
             assert!(!node.keys.is_empty());
             reachable.push(node);
         }
-        let successors = successors(&node, &mut explored);
-        for succ in successors {
-            queue.push_back(succ);
+        for (cell, pos) in grid_get_non_wall_neighbors(grid, node.pos) {
+            let y: usize = pos.y.try_into().unwrap();
+            let x: usize = pos.x.try_into().unwrap();
+            if explored[y][x] {
+                continue;
+            }
+            explored[y][x] = true;
+
+            let floor_keys = node.keys.union(cell.floor_key());
+            let required_keys = node.required_keys.union(cell.door_key());
+            queue.push_back(ReachableKey {
+                pos,
+                keys: floor_keys,
+                distance: node.distance + 1,
+                required_keys,
+            })
         }
     }
 
@@ -359,38 +375,20 @@ fn compute_graph(grid: &Grid) -> Graph {
     graph
 }
 
-fn parse_graph(input: &str) -> Graph {
-    let grid = parse_grid(input);
-    let graph = compute_graph(&grid);
-
-    graph
-}
-
 fn solve_graph(graph: &Graph) -> u32 {
     let entry_points = graph.entry_points();
-    let start = Agent {
-        positions: entry_points,
-        keys: KeySet::default(),
-    };
-
+    let start = Agent::new(KeySet::default(), &entry_points);
     let num_keys = graph.num_keys();
 
-    let copy_and_change_point = |positions: &Vec<Point>, index: usize, pos: Point| {
-        positions
-            .iter()
-            .enumerate()
-            .map(|(i, &p)| if i == index { pos } else { p })
-            .collect()
-    };
-
-    let mut count = 0;
+    let mut successors_call_count = 0;
+    let mut successors_count = 0;
     let successors = |agent: &Agent| -> Vec<(Agent, u32)> {
-        count += 1;
-        if true && count % 100_000 == 0 {
-            println!("[{}] successors of {}", count, agent);
+        successors_call_count += 1;
+        if true && successors_call_count % 100_000 == 0 {
+            println!("[{}] successors of {}", successors_call_count, agent);
         }
         let mut successors = Vec::new();
-        for (agent_index, &agent_pos) in agent.positions.iter().enumerate() {
+        for (agent_index, &agent_pos) in agent.positions().iter().enumerate() {
             let node = graph.nodes.get(&agent_pos).unwrap();
             for reachable in node.reachable.iter() {
                 // Ignore positions where we lack the required keys to get there from here.
@@ -406,13 +404,14 @@ fn solve_graph(graph: &Graph) -> u32 {
                     continue;
                 }
 
-                let keys = agent.keys.union(reachable.keys);
-                let positions = copy_and_change_point(&agent.positions, agent_index, reachable.pos);
-                let agent = Agent { positions, keys };
+                let mut successor_agent = agent.clone();
+                successor_agent.keys = agent.keys.union(reachable.keys);
+                successor_agent.set_pos(agent_index, reachable.pos);
                 let distance = reachable.distance;
-                successors.push((agent, distance));
+                successors.push((successor_agent, distance));
             }
         }
+        successors_count += successors.len();
         successors
     };
 
@@ -429,8 +428,8 @@ fn solve_graph(graph: &Graph) -> u32 {
     };
     if true {
         println!(
-            "path length: {:?}\ntook {} computed successors",
-            path_len, count
+            "path length: {:?}\ntook {} calls to successors() and {} states",
+            path_len, successors_call_count, successors_count
         );
     }
 
@@ -448,7 +447,7 @@ fn grid_points(grid: &Grid) -> Vec<(Point, Cell)> {
         .flat_map(|(y, row)| {
             row.iter().enumerate().map(move |(x, cell)| {
                 (
-                    Point::new(y.try_into().unwrap(), y.try_into().unwrap()),
+                    Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
                     *cell,
                 )
             })
@@ -499,12 +498,23 @@ enum Part {
 }
 
 fn solve_part(input: &str, part: Part) -> u32 {
+    let mut start = Instant::now();
     let mut grid = parse_grid(input);
     if matches!(part, Part::Two) {
         fix_for_part_two(&mut grid);
     }
+    let parse_duration = start.elapsed();
+    start = Instant::now();
     let graph = compute_graph(&grid);
-    solve_graph(&graph)
+    let graph_duration = start.elapsed();
+    start = Instant::now();
+    let path_length = solve_graph(&graph);
+    let solve_duration = start.elapsed();
+    println!(
+        "parse_duration {:#?} graph_duration {:?} solve_duration {:?}",
+        parse_duration, graph_duration, solve_duration
+    );
+    path_length
 }
 
 fn part_one(input: &str) -> u32 {
