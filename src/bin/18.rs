@@ -1,9 +1,22 @@
-// Insights:
+// Code could be much cleaner.  I stopped after it worked.
 //
-// Simplification of the graph through edge compression is key.  The original
-// maze is presented as a grid.  If we consider this to be a graph with edge
-// weights 1, we can remove all empty squares and adjust edge weights upward to
-// account for this.  This dramatically reduces run time.
+// I optimized this until the tests passed in 0.02s, which took a multi-pass
+// approach.
+//
+// 1) Create the graph as faithful representation of the input, with length=1
+//    edges to all non-wall positions.
+// 2) Remove all empty nodes from the graph, leaving only the start, key, and
+//    door nodes.  Call this set of nodes N.  This is done by running a BFS
+//    from each node in N until another node in N is reached, recording
+//    the distance to each.
+// 3) Now, call the set of start nodes S and the set of target nodes T where
+//    T is N - S.  Construct a new graph for nodes N where every node has an
+//    edge to T.  Each edge has a distance, the set of keys found while
+//    traversing the edge, and the set of keys required to traverse it.
+// 4) Run Djikstra's shortest path over the graph constructed in 3.
+//
+// Of these steps by far the most important is step 2.  Step 3 is an
+// an optimization that is less important.
 //
 use std::collections::BTreeMap;
 use std::collections::HashSet;
