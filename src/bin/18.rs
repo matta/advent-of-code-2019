@@ -148,11 +148,11 @@ impl TryFrom<char> for Cell {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
     keys: KeySet,
-    positions: Vec<Point>,
+    positions: Vec<EdgeNode>,
 }
 
 impl Agent {
-    fn new(keys: KeySet, positions: &[Point]) -> Agent {
+    fn new(keys: KeySet, positions: &[EdgeNode]) -> Agent {
         Agent {
             keys,
             positions: positions.into(),
@@ -204,22 +204,22 @@ fn grid_get(grid: &Grid, pos: Point) -> Cell {
 
 #[derive(Debug, Clone, Copy)]
 struct ReachableKey {
-    pos: Point,
-    cell: Cell,
+    node_id: EdgeNode,
     distance: u32,
     keys: KeySet,
     required_keys: KeySet,
 }
 
 #[derive(Debug)]
-struct Node {
-    cell: Cell,
+struct GraphEdges {
     reachable: Vec<ReachableKey>,
 }
 
+type GraphPoint = EdgeNode;
+
 #[derive(Default)]
 struct Graph {
-    nodes: BTreeMap<Point, Node>,
+    nodes: BTreeMap<GraphPoint, GraphEdges>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -232,10 +232,10 @@ type EdgesFromNodeVec = Vec<(EdgeNode, u32)>;
 type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeVec>;
 
 impl Graph {
-    fn entry_points(&self) -> Vec<Point> {
+    fn entry_points(&self) -> Vec<GraphPoint> {
         self.nodes
-            .iter()
-            .filter_map(|(pos, node)| match node.cell {
+            .keys()
+            .filter_map(|pos| match pos.cell {
                 Cell::Entrance => Some(*pos),
                 _ => None,
             })
@@ -244,7 +244,7 @@ impl Graph {
 
     fn num_keys(&self) -> u32 {
         self.nodes
-            .values()
+            .keys()
             .filter(|node| matches!(node.cell, Cell::Key(_)))
             .count()
             .try_into()
@@ -347,8 +347,7 @@ fn compute_edges(grid: &Grid) -> EdgeNodeMap {
 
 fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<ReachableKey> {
     let start = ReachableKey {
-        pos: start_node.pos,
-        cell: start_node.cell,
+        node_id: *start_node,
         keys: start_node.cell.floor_key(),
         distance: 0,
         required_keys: KeySet::default(),
@@ -357,19 +356,14 @@ fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<Reachabl
     queue.push_back(start);
 
     let mut explored = HashSet::new();
-    explored.insert(start.pos);
+    explored.insert(start.node_id.pos);
 
     let mut reachable = Vec::new();
     while let Some(node) = queue.pop_front() {
-        if !node.cell.floor_key().is_empty() {
+        if !node.node_id.cell.floor_key().is_empty() {
             reachable.push(node);
         }
-        let node_edges = edges
-            .get(&EdgeNode {
-                pos: node.pos,
-                cell: node.cell,
-            })
-            .unwrap();
+        let node_edges = edges.get(&node.node_id).unwrap();
 
         for (edge_node, weight) in node_edges.iter() {
             if !explored.insert(edge_node.pos) {
@@ -380,8 +374,7 @@ fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<Reachabl
             let floor_keys = node.keys.union(cell.floor_key());
             let required_keys = node.required_keys.union(cell.door_key());
             queue.push_back(ReachableKey {
-                pos: edge_node.pos,
-                cell,
+                node_id: *edge_node,
                 keys: floor_keys,
                 distance: node.distance + weight,
                 required_keys,
@@ -398,13 +391,7 @@ fn compute_graph(edges: &EdgeNodeMap) -> Graph {
     for node in edges.keys() {
         if matches!(node.cell, Cell::Entrance | Cell::Key(_)) {
             let reachable = compute_reachable(edges, node);
-            graph.nodes.insert(
-                node.pos,
-                Node {
-                    cell: node.cell,
-                    reachable,
-                },
-            );
+            graph.nodes.insert(*node, GraphEdges { reachable });
         }
     }
 
@@ -412,7 +399,7 @@ fn compute_graph(edges: &EdgeNodeMap) -> Graph {
     if trace {
         println!("as graph:");
         for (pos, node) in &graph.nodes {
-            println!("   pos: {} cell: {:?}", pos, node.cell);
+            println!("   pos: {:?}", pos);
             for reachable in &node.reachable {
                 println!("      {:?}", reachable);
             }
@@ -453,7 +440,7 @@ fn solve_graph(graph: &Graph) -> u32 {
 
                 let mut successor_agent = agent.clone();
                 successor_agent.keys = agent.keys.union(reachable.keys);
-                successor_agent.positions[positions_index] = reachable.pos;
+                successor_agent.positions[positions_index] = reachable.node_id;
                 let distance = reachable.distance;
                 successors.push((successor_agent, distance));
             }
