@@ -148,29 +148,15 @@ impl TryFrom<char> for Cell {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 struct Agent {
     keys: KeySet,
-    positions: [Point; 4],
-    len: usize,
+    positions: Vec<Point>,
 }
 
 impl Agent {
     fn new(keys: KeySet, positions: &[Point]) -> Agent {
-        let mut agent = Agent {
+        Agent {
             keys,
-            len: positions.len(),
-            ..Default::default()
-        };
-        for i in 0..positions.len() {
-            agent.positions[i] = positions[i];
+            positions: positions.into(),
         }
-        agent
-    }
-
-    fn positions(&self) -> &[Point] {
-        &self.positions[0..self.len]
-    }
-
-    fn set_pos(&mut self, index: usize, point: Point) {
-        self.positions[index] = point;
     }
 }
 
@@ -227,6 +213,15 @@ struct Graph {
     nodes: BTreeMap<Point, Node>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EdgeNode {
+    pos: Point,
+    cell: Cell,
+}
+
+type EdgesFromNodeMap = BTreeMap<EdgeNode, u32>;
+type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeMap>;
+
 impl Graph {
     fn entry_points(&self) -> Vec<Point> {
         self.nodes
@@ -247,15 +242,6 @@ impl Graph {
             .expect("key count fits in u32")
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct EdgeNode {
-    pos: Point,
-    cell: Cell,
-}
-
-type EdgesFromNodeMap = BTreeMap<EdgeNode, u32>;
-type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeMap>;
 
 #[allow(dead_code)]
 fn print_nodes(edges: &EdgeNodeMap, phase: &str) {
@@ -449,8 +435,8 @@ fn solve_graph(graph: &Graph) -> u32 {
             println!("[{}] successors of {}", successors_call_count, agent);
         }
         let mut successors = Vec::new();
-        for (agent_index, &agent_pos) in agent.positions().iter().enumerate() {
-            let node = graph.nodes.get(&agent_pos).unwrap();
+        for (positions_index, &position) in agent.positions.iter().enumerate() {
+            let node = graph.nodes.get(&position).unwrap();
             for reachable in node.reachable.iter() {
                 // Ignore positions where we lack the required keys to get there from here.
                 if !agent.keys.contains(reachable.required_keys) {
@@ -467,7 +453,7 @@ fn solve_graph(graph: &Graph) -> u32 {
 
                 let mut successor_agent = agent.clone();
                 successor_agent.keys = agent.keys.union(reachable.keys);
-                successor_agent.set_pos(agent_index, reachable.pos);
+                successor_agent.positions[positions_index] = reachable.pos;
                 let distance = reachable.distance;
                 successors.push((successor_agent, distance));
             }
