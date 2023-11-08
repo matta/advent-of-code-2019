@@ -202,6 +202,15 @@ fn grid_get(grid: &Grid, pos: Point) -> Cell {
         .unwrap_or(Cell::Wall)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ReachableKey {
+    pos: Point,
+    cell: Cell,
+    distance: u32,
+    keys: KeySet,
+    required_keys: KeySet,
+}
+
 #[derive(Debug)]
 struct Node {
     cell: Cell,
@@ -219,8 +228,8 @@ struct EdgeNode {
     cell: Cell,
 }
 
-type EdgesFromNodeMap = BTreeMap<EdgeNode, u32>;
-type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeMap>;
+type EdgesFromNodeVec = Vec<(EdgeNode, u32)>;
+type EdgeNodeMap = BTreeMap<EdgeNode, EdgesFromNodeVec>;
 
 impl Graph {
     fn entry_points(&self) -> Vec<Point> {
@@ -271,7 +280,7 @@ fn compute_all_edges(grid: &Grid) -> EdgeNodeMap {
             }
             let pos = Point::new(x.try_into().unwrap(), y.try_into().unwrap());
             let node = EdgeNode { pos, cell };
-            let mut edges = BTreeMap::default();
+            let mut edges = EdgesFromNodeVec::default();
 
             for dest_pos in directions.iter().map(|dir| pos + *dir) {
                 let dest_cell = grid_get(grid, dest_pos);
@@ -279,13 +288,13 @@ fn compute_all_edges(grid: &Grid) -> EdgeNodeMap {
                     continue;
                 }
 
-                edges.insert(
+                edges.push((
                     EdgeNode {
                         pos: dest_pos,
                         cell: dest_cell,
                     },
                     1,
-                );
+                ));
             }
 
             if !edges.is_empty() {
@@ -305,7 +314,7 @@ fn compress_edges(nodes: &EdgeNodeMap) -> EdgeNodeMap {
         .collect();
     let mut compressed_nodes = EdgeNodeMap::new();
     for keep_node in keep_nodes {
-        let mut edges = EdgesFromNodeMap::new();
+        let mut edges = EdgesFromNodeVec::new();
         let mut queue = VecDeque::new();
         let mut visited = HashSet::new();
         queue.push_back((keep_node, 0_u32));
@@ -319,7 +328,7 @@ fn compress_edges(nodes: &EdgeNodeMap) -> EdgeNodeMap {
                 if dst.cell == Cell::Open || dst.cell == Cell::Entrance {
                     queue.push_back((*dst, weight));
                 } else {
-                    edges.insert(*dst, weight);
+                    edges.push((*dst, weight));
                 }
             }
         }
@@ -334,15 +343,6 @@ fn compute_edges(grid: &Grid) -> EdgeNodeMap {
     let edges = compress_edges(&edges);
     // print_nodes(&edges, "compressed edges");
     edges
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ReachableKey {
-    pos: Point,
-    cell: Cell,
-    distance: u32,
-    keys: KeySet,
-    required_keys: KeySet,
 }
 
 fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<ReachableKey> {
