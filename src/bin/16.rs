@@ -1,4 +1,4 @@
-use std::{cmp::min, iter};
+use std::cmp::min;
 
 fn parse_digits(input: &str) -> Vec<i32> {
     input
@@ -73,29 +73,39 @@ fn part_one(input: &str) -> i32 {
     fft_run(input, 100)
 }
 
+// TODO: rewrite using this:
 fn part_two(input: &str) -> i32 {
-    // Credit to all the kind people on
+    // Credit to all the kind people on Reddit who are better than I am at
+    // figuring out these kinds of problems:
+    //
     // https://www.reddit.com/r/adventofcode/comments/ebai4g/2019_day_16_solutions/
-    // who are more mathematically inclined and persistent than I am.
+    // https://www.reddit.com/r/adventofcode/comments/ebf5cy/2019_day_16_part_2_understanding_how_to_come_up/
+    // https://www.reddit.com/r/adventofcode/comments/ebai4g/comment/fb3kujj/?utm_source=share&utm_medium=web2x&context=3
     let digits = parse_digits(input);
     let skip = as_num(&digits[..7]) as usize;
-    let explode = 10000;
-    assert!(skip >= digits.len() * explode / 2);
-    let mut digits: Vec<i32> = iter::repeat(digits.iter().copied())
-        .take(explode)
-        .flatten()
-        .skip(skip)
+
+    let suffix_len = digits.len() * 10_000 - skip;
+
+    println!("suffix_len {}", suffix_len);
+
+    let mut suffix: Vec<i32> = digits
+        .iter()
+        .rev()
+        .cycle()
+        .take(suffix_len)
+        .copied()
         .collect();
 
-    for _phase in 0..100 {
-        let mut sum = 0_u32;
-        for i in (0..digits.len()).rev() {
-            sum += digits[i] as u32;
-            digits[i] = (sum % 10_u32) as i32;
+    for _ in 0..100 {
+        let mut prev = suffix[0];
+        for x in &mut suffix[1..] {
+            *x = (*x + prev) % 10;
+            prev = *x;
         }
     }
 
-    as_num(&digits[..8])
+    let answer: Vec<i32> = suffix.iter().rev().take(8).copied().collect();
+    as_num(&answer)
 }
 
 fn part_one_main() {
