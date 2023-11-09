@@ -9,14 +9,14 @@ fn parse_digits(input: &str) -> Vec<i32> {
 }
 
 fn fft_phase(digits: &Vec<i32>) -> Vec<i32> {
-    let base_pattern: [i32; 4] = [1, 0, -1, 0];
+    let pattern: [i32; 4] = [1, 0, -1, 0];
 
     let mut next = Vec::with_capacity(digits.len());
     for i in 0..digits.len() {
         let mut result = 0;
         for (j, val) in digits.iter().enumerate().skip(i) {
             let pattern_index = (j - i) / (i + 1) % 4;
-            let pattern_val = base_pattern[pattern_index];
+            let pattern_val = pattern[pattern_index];
             result += val * pattern_val;
         }
         let result = result.abs() % 10;
@@ -26,10 +26,8 @@ fn fft_phase(digits: &Vec<i32>) -> Vec<i32> {
 }
 
 fn fft_loop(mut digits: Vec<i32>, count: u32) -> Vec<i32> {
-    // println!("XXX fft_loop({:?}, {})", digits, count);
     for _ in 0..count {
         digits = fft_phase(&digits);
-        // println!("XXX {:?}", digits);
     }
 
     digits
