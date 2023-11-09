@@ -1,4 +1,4 @@
-use std::iter;
+use std::{cmp::min, iter};
 
 fn parse_digits(input: &str) -> Vec<i32> {
     input
@@ -9,18 +9,44 @@ fn parse_digits(input: &str) -> Vec<i32> {
 }
 
 fn fft_phase(digits: &Vec<i32>) -> Vec<i32> {
-    let pattern: [i32; 4] = [1, 0, -1, 0];
-
     let mut next = Vec::with_capacity(digits.len());
-    for i in 0..digits.len() {
-        let mut result = 0;
-        for (j, val) in digits.iter().enumerate().skip(i) {
-            let pattern_index = (j - i) / (i + 1) % 4;
-            let pattern_val = pattern[pattern_index];
-            result += val * pattern_val;
+    for stride in 1..=digits.len() {
+        let mut sum = 0;
+
+        // Handle the first use of the first value in the pattern: 0
+        //
+        // Because this value is zero we skip past all digits it applies to.  We
+        // skip one less than all other strides because the problem statement
+        // requires skipping the very first value in the sequence exactly once.
+        let mut j = stride - 1;
+
+        while j < digits.len() {
+            // Handle the second value in the pattern: 1
+            //
+            // Because this value is one we can simply sum the digits without
+            // multiplication.
+            let end = min(j + stride, digits.len());
+            sum += digits[j..end].iter().sum::<i32>();
+            j = end;
+
+            // Handle the third value in the pattern: 0
+            //
+            // Similar to the first value, these don't contribute to the sum
+            // so we can simply skip them.
+            j += stride;
+            if j >= digits.len() {
+                break;
+            }
+
+            // Handle the fourth value in the pattern: -1
+            let end = min(j + stride, digits.len());
+            sum += digits[j..end].iter().map(|n| -n).sum::<i32>();
+            j = end;
+
+            // Handle the first value in the pattern: 0
+            j += stride;
         }
-        let result = result.abs() % 10;
-        next.push(result);
+        next.push(sum.abs() % 10);
     }
     next
 }
@@ -93,10 +119,13 @@ mod tests {
 
     #[test]
     fn test_fft_run() {
+        assert_eq!(fft_run("87654321", 1), 48540631);
         assert_eq!(fft_run("12345678", 1), 48226158);
         assert_eq!(fft_run("12345678", 2), 34040438);
         assert_eq!(fft_run("12345678", 3), 03415518);
         assert_eq!(fft_run("12345678", 4), 01029498);
+        assert_eq!(fft_run("12345678", 100), 23845678);
+        assert_eq!(fft_run("80871224585914546619083218645595", 1), 24706861);
         assert_eq!(fft_run("80871224585914546619083218645595", 100), 24176176);
         assert_eq!(fft_run("19617804207202209144916044189917", 100), 73745418);
         assert_eq!(fft_run("69317163492948606335995924319873", 100), 52432133);
