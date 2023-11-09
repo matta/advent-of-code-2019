@@ -1,59 +1,46 @@
 use std::iter;
 
-fn parse_digits(input: &str) -> Vec<u8> {
+fn parse_digits(input: &str) -> Vec<i32> {
     input
         .trim()
         .chars()
-        .map(|c| c.to_digit(10).unwrap() as u8)
+        .map(|c| c.to_digit(10).unwrap() as i32)
         .collect()
 }
 
-fn fft_phase(phase: u32, digits: &Vec<u8>) -> Vec<u8> {
-    let base_pattern: [i32; 4] = [0, 1, 0, -1];
+fn fft_phase(digits: &Vec<i32>) -> Vec<i32> {
+    let base_pattern: [i32; 4] = [1, 0, -1, 0];
 
-    (1..=digits.len())
-        .map(|index| {
-            if index % 10000 == 0 {
-                println!(
-                    "phase {} index {} {:02}%",
-                    phase,
-                    index,
-                    index as f32 / digits.len() as f32 * 100.0
-                );
-            }
-            let pattern = base_pattern
-                .iter()
-                .flat_map(|p| iter::repeat(*p).take(index))
-                .cycle()
-                .skip(1);
-
-            let product = digits
-                .iter()
-                .zip(pattern)
-                .map(|(digit, base)| *digit as i32 * base)
-                .sum::<i32>();
-
-            (product.abs() % 10) as u8
-        })
-        .collect()
+    let mut next = Vec::with_capacity(digits.len());
+    for i in 0..digits.len() {
+        let mut result = 0;
+        for (j, val) in digits.iter().enumerate().skip(i) {
+            let pattern_index = (j - i) / (i + 1) % 4;
+            let pattern_val = base_pattern[pattern_index];
+            result += val * pattern_val;
+        }
+        let result = result.abs() % 10;
+        next.push(result);
+    }
+    next
 }
 
-fn fft_loop(mut digits: Vec<u8>, count: u32) -> Vec<u8> {
-    for phase in 0..count {
-        digits = fft_phase(phase, &digits);
+fn fft_loop(mut digits: Vec<i32>, count: u32) -> Vec<i32> {
+    // println!("XXX fft_loop({:?}, {})", digits, count);
+    for _ in 0..count {
+        digits = fft_phase(&digits);
+        // println!("XXX {:?}", digits);
     }
 
     digits
 }
 
-fn as_num(digits: &[u8]) -> i32 {
-    digits.iter().fold(0, |acc, n| {
-        let n: i32 = (*n).into();
-        acc * 10 + n
-    })
+fn as_num(digits: &[i32]) -> i32 {
+    digits.iter().fold(0, |acc, n| acc * 10 + n)
 }
 
 fn fft_run(input: &str, count: u32) -> i32 {
+    // println!("XXX fft_run");
     let digits = fft_loop(parse_digits(input), count);
     as_num(&digits[..8])
 }
@@ -70,7 +57,7 @@ fn part_two(input: &str) -> i32 {
     let skip = as_num(&digits[..7]) as usize;
     let explode = 10000;
     assert!(skip >= digits.len() * explode / 2);
-    let mut digits: Vec<u8> = iter::repeat(digits.iter().copied())
+    let mut digits: Vec<i32> = iter::repeat(digits.iter().copied())
         .take(explode)
         .flatten()
         .skip(skip)
@@ -80,17 +67,26 @@ fn part_two(input: &str) -> i32 {
         let mut sum = 0_u32;
         for i in (0..digits.len()).rev() {
             sum += digits[i] as u32;
-            digits[i] = (sum % 10_u32) as u8;
+            digits[i] = (sum % 10_u32) as i32;
         }
     }
 
     as_num(&digits[..8])
 }
 
-fn main() {
+fn part_one_main() {
     let input = include_str!("../inputs/16.txt");
     assert_eq!(part_one(input), 89576828);
+}
+
+fn part_two_main() {
+    let input = include_str!("../inputs/16.txt");
     assert_eq!(part_two(input), 23752579);
+}
+
+fn main() {
+    part_one_main();
+    part_two_main();
 }
 
 #[cfg(test)]
@@ -109,7 +105,12 @@ mod tests {
     }
 
     #[test]
-    fn test_main() {
-        main()
+    fn test_part_one() {
+        part_one_main();
+    }
+
+    #[test]
+    fn test_part_two() {
+        part_two_main();
     }
 }
