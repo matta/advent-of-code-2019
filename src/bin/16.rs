@@ -73,7 +73,6 @@ fn part_one(input: &str) -> i32 {
     fft_run(input, 100)
 }
 
-// TODO: rewrite using this:
 fn part_two(input: &str) -> i32 {
     // Credit to all the kind people on Reddit who are better than I am at
     // figuring out these kinds of problems:
@@ -81,31 +80,53 @@ fn part_two(input: &str) -> i32 {
     // https://www.reddit.com/r/adventofcode/comments/ebai4g/2019_day_16_solutions/
     // https://www.reddit.com/r/adventofcode/comments/ebf5cy/2019_day_16_part_2_understanding_how_to_come_up/
     // https://www.reddit.com/r/adventofcode/comments/ebai4g/comment/fb3kujj/?utm_source=share&utm_medium=web2x&context=3
-    let digits = parse_digits(input);
-    let skip = as_num(&digits[..7]) as usize;
+    //
+    // From https://www.reddit.com/r/adventofcode/comments/ebf5cy/comment/fb5p0hy
+    // we have this:
+    //
+    // I think the best way to understand the solution is just to write out
+    // the operations for the example from part 1. Then, the pattern is
+    // obviously a backwards cumulative sum % 10.
+    //
+    // Input signal: 12345678
+    //
+    // 1*1 + ... + 8*0 = 4
+    // 1*0 + ... + 8*0 = 8
+    // 1*0 + ... + 8*0 = 2
+    // 1*0 + ... + 8*0 = 2
+    // 1*0 + ... + 8*1 = 6 = (8 + 7 + 6 + 5) % 10
+    // 1*0 + ... + 8*1 = 1 = (8 + 7 + 6) % 10
+    // 1*0 + ... + 8*1 = 5 = (8 + 7) % 10
+    // 1*0 + ... + 8*1 = 8 = (8) % 10
+    //
+    // So, we exploit the pattern that the result at pos i past the midway
+    // point is the cumulative sum of each digit (i+1).. mod 10.
 
-    let suffix_len = digits.len() * 10_000 - skip;
-
-    println!("suffix_len {}", suffix_len);
-
-    let mut suffix: Vec<i32> = digits
-        .iter()
-        .rev()
-        .cycle()
-        .take(suffix_len)
-        .copied()
-        .collect();
+    let mut suffix = {
+        let digits = parse_digits(input);
+        let exploded_len = digits.len() * 10_000;
+        let skip: usize = as_num(&digits[..7]).try_into().unwrap();
+        // Insist that we need compute the FFT for somewhere in the
+        // second half of the signal.
+        assert!(skip >= exploded_len / 2);
+        digits
+            .iter()
+            .copied()
+            .cycle()
+            .take(exploded_len)
+            .skip(skip)
+            .collect::<Vec<i32>>()
+    };
 
     for _ in 0..100 {
-        let mut prev = suffix[0];
-        for x in &mut suffix[1..] {
-            *x = (*x + prev) % 10;
-            prev = *x;
+        let mut sum = 0;
+        for value in suffix.iter_mut().rev() {
+            sum += *value;
+            *value = sum % 10;
         }
     }
 
-    let answer: Vec<i32> = suffix.iter().rev().take(8).copied().collect();
-    as_num(&answer)
+    as_num(&suffix[..8])
 }
 
 fn part_one_main() {
