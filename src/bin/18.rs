@@ -40,14 +40,14 @@ struct KeySet {
 
 impl fmt::Debug for KeySet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", "{")?;
+        write!(f, "{{")?;
         for ch in 'A'..='Z' {
             let key: KeySet = ch.try_into().unwrap();
             if self.contains(key) {
                 write!(f, "{}", ch)?
             }
         }
-        write!(f, "{}", '}')
+        write!(f, "}}")
     }
 }
 
@@ -87,7 +87,7 @@ impl TryFrom<u32> for KeySet {
     type Error = &'static str;
 
     fn try_from(mask: u32) -> Result<Self, Self::Error> {
-        let max_mask = (1 as u32) << (26 as u32);
+        let max_mask = 1 << 26;
         if mask.count_ones() == 1 && mask <= max_mask {
             Ok(KeySet { mask })
         } else {
@@ -106,7 +106,7 @@ impl TryFrom<char> for KeySet {
             _ => return Err("invalid key character"),
         };
         assert!(offset < 26);
-        let mask = (1 as u32) << (offset as u32);
+        let mask = 1 << offset;
         let key: KeySet = mask.try_into()?;
         Ok(key)
     }
@@ -352,10 +352,7 @@ fn compress_edges(nodes: &EdgeNodeMap) -> EdgeNodeMap {
 
 fn compute_edges(grid: &Grid) -> EdgeNodeMap {
     let edges = compute_all_edges(grid);
-    // print_edges(&edges, "all edges");
-    let edges = compress_edges(&edges);
-    // print_nodes(&edges, "compressed edges");
-    edges
+    compress_edges(&edges)
 }
 
 fn compute_reachable(edges: &EdgeNodeMap, start_node: &EdgeNode) -> Vec<ReachableKey> {
@@ -431,7 +428,7 @@ fn solve_graph(graph: &Graph) -> u32 {
     let mut successors_count = 0;
     let successors = |agent: &Agent| -> Vec<(Agent, u32)> {
         successors_call_count += 1;
-        if true && successors_call_count % 100_000 == 0 {
+        if successors_call_count % 100_000 == 0 {
             println!("[{}] successors of {}", successors_call_count, agent);
         }
         let mut successors = Vec::new();

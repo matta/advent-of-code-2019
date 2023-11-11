@@ -26,6 +26,10 @@ impl<T: Add<Output = T> + Sub<Output = T> + Ord + Copy> Point2D<T> {
         abs_difference(self.x, other.x) + abs_difference(self.y, other.y)
     }
 
+    pub fn neighbors(&self) -> NeighborsIterator<T> {
+        NeighborsIterator::new(*self)
+    }
+
     pub fn cardinal_neighbors(&self) -> CardinalNeighborsIterator<T> {
         CardinalNeighborsIterator::new(*self)
     }
@@ -63,6 +67,68 @@ impl<T: fmt::Display> fmt::Display for Point2D<T> {
 impl<T: fmt::Display> fmt::Debug for Point2D<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+pub struct NeighborsIterator<T> {
+    point: Point2D<T>,
+    current_direction: i32,
+}
+
+impl<T> NeighborsIterator<T> {
+    fn new(point: Point2D<T>) -> NeighborsIterator<T> {
+        NeighborsIterator {
+            point,
+            current_direction: 0,
+        }
+    }
+}
+
+impl<T: Add<Output = T> + Sub<Output = T> + From<i32> + Copy> Iterator for NeighborsIterator<T> {
+    type Item = Point2D<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let neighbor_point = {
+            match self.current_direction {
+                0 => Self::Item {
+                    x: self.point.x,
+                    y: self.point.y + T::from(1),
+                },
+                1 => Self::Item {
+                    x: self.point.x,
+                    y: self.point.y - T::from(1),
+                },
+                2 => Self::Item {
+                    x: self.point.x + T::from(1),
+                    y: self.point.y,
+                },
+                3 => Self::Item {
+                    x: self.point.x - T::from(1),
+                    y: self.point.y,
+                },
+                4 => Self::Item {
+                    x: self.point.x + T::from(1),
+                    y: self.point.y + T::from(1),
+                },
+                5 => Self::Item {
+                    x: self.point.x - T::from(1),
+                    y: self.point.y - T::from(1),
+                },
+                6 => Self::Item {
+                    x: self.point.x + T::from(1),
+                    y: self.point.y - T::from(1),
+                },
+                7 => Self::Item {
+                    x: self.point.x - T::from(1),
+                    y: self.point.y + T::from(1),
+                },
+                _ => return None,
+            }
+        };
+
+        self.current_direction += 1;
+
+        Some(neighbor_point)
     }
 }
 
