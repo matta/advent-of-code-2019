@@ -3,6 +3,34 @@ use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
 
+use num::One;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum CardinalDirection {
+    North,
+    South,
+    East,
+    West,
+}
+
+impl CardinalDirection {
+    pub fn negate(&self) -> Self {
+        match *self {
+            CardinalDirection::North => CardinalDirection::South,
+            CardinalDirection::South => CardinalDirection::North,
+            CardinalDirection::East => CardinalDirection::West,
+            CardinalDirection::West => CardinalDirection::East,
+        }
+    }
+}
+
+pub const CARDINAL_DIRECTIONS: [CardinalDirection; 4] = [
+    CardinalDirection::North,
+    CardinalDirection::South,
+    CardinalDirection::East,
+    CardinalDirection::West,
+];
+
 #[derive(Default, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Point2D<T> {
     pub x: T,
@@ -17,9 +45,23 @@ fn abs_difference<T: Sub<Output = T> + Ord>(x: T, y: T) -> T {
     }
 }
 
-impl<T: Add<Output = T> + Sub<Output = T> + Ord + Copy> Point2D<T> {
+impl<T: Add<Output = T> + Sub<Output = T> + Ord + Copy + TryFrom<usize> + TryInto<usize> + One>
+    Point2D<T>
+{
+    /// Creates a new [`Point2D<T>`].
     pub fn new(x: T, y: T) -> Point2D<T> {
         Point2D { x, y }
+    }
+
+    /// Creates a new [`Point2D<T>`] from `usize` arguments.  Returns None
+    /// if the integral conversion fails.
+    pub fn usize_new(x: usize, y: usize) -> Option<Point2D<T>> {
+        Some(Self::new(x.try_into().ok()?, y.try_into().ok()?))
+    }
+
+    /// Returns this point as a pair (x, y) of usize.
+    pub fn as_usize_pair(&self) -> Option<(usize, usize)> {
+        Some((self.x.try_into().ok()?, self.y.try_into().ok()?))
     }
 
     pub fn manhattan_distance(&self, other: Self) -> T {
@@ -32,6 +74,16 @@ impl<T: Add<Output = T> + Sub<Output = T> + Ord + Copy> Point2D<T> {
 
     pub fn cardinal_neighbors(&self) -> CardinalNeighborsIterator<T> {
         CardinalNeighborsIterator::new(*self)
+    }
+
+    pub fn cardinal_neighbor(&self, dir: CardinalDirection) -> Self {
+        let one = T::one();
+        match dir {
+            CardinalDirection::North => Self::new(self.x, self.y - one),
+            CardinalDirection::South => Self::new(self.x, self.y + one),
+            CardinalDirection::East => Self::new(self.x + one, self.y),
+            CardinalDirection::West => Self::new(self.x - one, self.y),
+        }
     }
 }
 
@@ -84,43 +136,44 @@ impl<T> NeighborsIterator<T> {
     }
 }
 
-impl<T: Add<Output = T> + Sub<Output = T> + From<i32> + Copy> Iterator for NeighborsIterator<T> {
+impl<T: Add<Output = T> + Sub<Output = T> + One + Copy> Iterator for NeighborsIterator<T> {
     type Item = Point2D<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let neighbor_point = {
+            let one = T::one();
             match self.current_direction {
                 0 => Self::Item {
                     x: self.point.x,
-                    y: self.point.y + T::from(1),
+                    y: self.point.y + one,
                 },
                 1 => Self::Item {
                     x: self.point.x,
-                    y: self.point.y - T::from(1),
+                    y: self.point.y - one,
                 },
                 2 => Self::Item {
-                    x: self.point.x + T::from(1),
+                    x: self.point.x + one,
                     y: self.point.y,
                 },
                 3 => Self::Item {
-                    x: self.point.x - T::from(1),
+                    x: self.point.x - one,
                     y: self.point.y,
                 },
                 4 => Self::Item {
-                    x: self.point.x + T::from(1),
-                    y: self.point.y + T::from(1),
+                    x: self.point.x + one,
+                    y: self.point.y + one,
                 },
                 5 => Self::Item {
-                    x: self.point.x - T::from(1),
-                    y: self.point.y - T::from(1),
+                    x: self.point.x - one,
+                    y: self.point.y - one,
                 },
                 6 => Self::Item {
-                    x: self.point.x + T::from(1),
-                    y: self.point.y - T::from(1),
+                    x: self.point.x + one,
+                    y: self.point.y - one,
                 },
                 7 => Self::Item {
-                    x: self.point.x - T::from(1),
-                    y: self.point.y + T::from(1),
+                    x: self.point.x - one,
+                    y: self.point.y + one,
                 },
                 _ => return None,
             }
