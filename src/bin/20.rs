@@ -1,139 +1,31 @@
 #![allow(dead_code, unused_variables)]
 use std::collections::HashMap;
 
+use aoc2019::graph::{Graph, NodeId};
 use aoc2019::point::{CardinalDirection, Point2D, CARDINAL_DIRECTIONS};
-
-const INPUT: &str = include_str!("../inputs/20.txt");
-const EXAMPLE_SMALL: &str = include_str!("../examples/20.small.txt");
-const EXAMPLE: &str = include_str!("../examples/20.txt");
+use pathfinding::prelude::{dijkstra, dijkstra_all};
 
 type Point = Point2D<i32>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum Position {
-    OuterLabel(char, char),
-    InnerLabel(char, char),
-    Corridor(Point),
+#[derive(Debug, Clone, Copy)]
+struct Node {
+    point: Point,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy)]
 struct Edge {
-    weight: u32,
-    dest: Position,
+    distance: u32,
+    height_change: i32,
+    label: Option<(char, char)>,
 }
 
-#[derive(Default, Debug)]
-struct Graph {
-    nodes: HashMap<Position, Vec<Edge>>,
+#[derive(Debug, Clone, Copy)]
+struct Label {
+    outer: bool,
+    name: (char, char),
 }
 
-impl Graph {
-    fn contains(&self, pos: &Position) -> bool {
-        self.nodes.contains_key(pos)
-    }
-
-    fn print_nodes(&self) {
-        let mut ordered: Vec<(&Position, &Vec<Edge>)> = self.nodes.iter().collect();
-        ordered.sort_unstable();
-
-        for (pos, edges) in ordered {
-            println!("{:?}", pos);
-            for edge in edges {
-                println!("                         {} {:?}", edge.weight, edge.dest);
-            }
-        }
-    }
-
-    fn add_node(&mut self, pos: Position) {
-        self.nodes.entry(pos).or_default();
-    }
-
-    fn add_edge(&mut self, from: Position, to: Position, weight: u32) {
-        self.nodes
-            .entry(from)
-            .or_default()
-            .push(Edge { weight, dest: to });
-    }
-
-    fn neighbors(&self, from: &Position) -> Vec<(Position, u32)> {
-        if let Some(edges) = self.nodes.get(from) {
-            edges.iter().map(|edge| (edge.dest, edge.weight)).collect()
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn points(&self) -> Vec<Position> {
-        self.nodes
-            .keys()
-            .filter(|e| matches!(e, Position::Corridor(_)))
-            .copied()
-            .collect()
-    }
-}
-
-fn shortest_path_part_one(graph: &Graph) -> u32 {
-    let start = Position::OuterLabel('A', 'A');
-    let successors = |pos: &Position| graph.neighbors(pos);
-    let success = |pos: &Position| *pos == Position::OuterLabel('Z', 'Z');
-    if let Some((_path, distance)) = pathfinding::prelude::dijkstra(&start, successors, success) {
-        distance
-    } else {
-        unreachable!();
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-struct PositionZ {
-    z: u32,
-    pos: Position,
-}
-
-impl PositionZ {
-    fn successor(&self, dest: &Position) -> Option<PositionZ> {
-        // println!("PositionZ::successor {:?} {:?}", self, dest);
-        let PositionZ { mut z, pos: source } = self;
-        match (*source, *dest) {
-            (Position::InnerLabel(_, _), Position::OuterLabel(_, _)) => {
-                z += 1;
-            }
-            (Position::OuterLabel(_, _), Position::InnerLabel(_, _)) => {
-                if z == 0 {
-                    return None;
-                }
-                z -= 1;
-            }
-            _ => {}
-        };
-        Some(PositionZ { z, pos: *dest })
-    }
-}
-
-fn shortest_path_part_two(graph: &Graph) -> u32 {
-    let start = PositionZ {
-        z: 0,
-        pos: Position::OuterLabel('A', 'A'),
-    };
-    let end = PositionZ {
-        z: 0,
-        pos: Position::OuterLabel('Z', 'Z'),
-    };
-    let successors = |from_posz: &PositionZ| {
-        graph
-            .neighbors(&from_posz.pos)
-            .iter()
-            .filter_map(|(pos, weight)| from_posz.successor(pos).map(|succ| (succ, *weight)))
-            .collect::<Vec<_>>()
-    };
-    let success = |pos: &PositionZ| *pos == end;
-    if let Some((_path, distance)) = pathfinding::prelude::dijkstra(&start, successors, success) {
-        distance
-    } else {
-        unreachable!();
-    }
-}
-
-fn read_label(chars: &[Vec<char>], anchor: &Point, dir: CardinalDirection) -> Option<Position> {
+fn read_label(chars: &[Vec<char>], anchor: &Point, dir: CardinalDirection) -> Option<Label> {
     let get = |pos: Point| -> Option<char> {
         let (x, y) = pos.as_usize_pair()?;
         Some(*chars.get(y)?.get(x)?)
@@ -149,19 +41,39 @@ fn read_label(chars: &[Vec<char>], anchor: &Point, dir: CardinalDirection) -> Op
             }
             let max_x: i32 = (chars[0].len() - 1).try_into().unwrap();
             let max_y: i32 = (chars.len() - 1).try_into().unwrap();
-            let label = if p2.x == 0 || p2.x == max_x || p2.y == 0 || p2.y == max_y {
-                Position::OuterLabel(ch1, ch2)
-            } else {
-                Position::InnerLabel(ch1, ch2)
-            };
-            Some(label)
+            let outer = p2.x == 0 || p2.x == max_x || p2.y == 0 || p2.y == max_y;
+            Some(Label {
+                outer,
+                name: (ch1, ch2),
+            })
         }
         _ => None,
     }
 }
 
-fn parse_maze(input: &str) -> Graph {
-    let mut graph = Graph::default();
+type MazeGraph = Graph<Node, Edge>;
+
+struct Maze {
+    start_id: NodeId,
+    end_id: NodeId,
+    graph: MazeGraph,
+}
+
+impl Maze {
+    fn print_all(&self) {
+        println!("Start: {:?}", self.start_id);
+        println!("End: {:?}", self.end_id);
+        for (node_id, node) in self.graph.nodes() {
+            println!("Node[{:?}]: {:?}", node_id, node);
+            for (edge, node_id) in self.graph.successors(node_id) {
+                println!("\t\t\t\t{:?} {:?}", edge, node_id);
+            }
+        }
+    }
+}
+
+fn parse_maze(input: &str) -> Maze {
+    let mut graph: Graph<Node, Edge> = Graph::default();
 
     let chars: Vec<Vec<char>> = input
         .trim_end()
@@ -172,35 +84,36 @@ fn parse_maze(input: &str) -> Graph {
     let find_attached_label = |point| {
         for dir in CARDINAL_DIRECTIONS.iter() {
             if let Some(label) = read_label(&chars, &point, *dir) {
-                return Some((*dir, label));
+                return Some(label);
             }
         }
         None
     };
 
+    #[derive(Default, Debug)]
+    struct Jumps {
+        outer_node: Option<NodeId>,
+        inner_node: Option<NodeId>,
+    }
+    let mut labels: HashMap<(char, char), Jumps> = HashMap::new();
+    let mut nodes: HashMap<Point, NodeId> = HashMap::new();
+
     for (y, line) in chars.iter().enumerate() {
         for (x, ch) in line.iter().enumerate() {
-            let pos = Point::usize_new(x, y).unwrap();
             match ch {
                 ' ' | '#' => {}
                 '.' => {
                     let point = Point::usize_new(x, y).unwrap();
-                    let corridor = Position::Corridor(point);
-                    graph.add_node(corridor);
-                    if let Some((dir, label)) = find_attached_label(point) {
-                        graph.add_edge(label, corridor, 0);
-                        graph.add_edge(corridor, label, 0);
-                        match label {
-                            Position::OuterLabel(ch1, ch2) => {
-                                graph.add_edge(label, Position::InnerLabel(ch1, ch2), 1);
-                            }
-                            Position::InnerLabel(ch1, ch2) => {
-                                graph.add_edge(label, Position::OuterLabel(ch1, ch2), 1);
-                            }
-                            _ => {}
+                    let node = Node { point };
+                    let node_id = graph.add_node(node);
+                    nodes.insert(point, node_id);
+                    if let Some(label) = find_attached_label(point) {
+                        let e = labels.entry(label.name).or_default();
+                        if label.outer {
+                            e.outer_node = Some(node_id);
+                        } else {
+                            e.inner_node = Some(node_id);
                         }
-                    } else {
-                        graph.add_node(corridor);
                     }
                 }
                 ch if ch.is_ascii_uppercase() => {
@@ -213,20 +126,183 @@ fn parse_maze(input: &str) -> Graph {
         }
     }
 
-    for pos in graph.points() {
-        if let Position::Corridor(point) = pos {
-            for neighbor_pos in point.cardinal_neighbors() {
-                let neighbor = Position::Corridor(neighbor_pos);
-                if graph.contains(&neighbor) {
-                    graph.add_edge(pos, neighbor, 1);
-                }
+    for (point, node_id) in nodes.iter() {
+        for neighbor_pos in point.cardinal_neighbors() {
+            if let Some(neighbor_id) = nodes.get(&neighbor_pos) {
+                graph.add_edge(
+                    *node_id,
+                    *neighbor_id,
+                    Edge {
+                        distance: 1,
+                        height_change: 0,
+                        label: None,
+                    },
+                );
             }
-        } else {
-            unreachable!();
         }
     }
 
-    graph
+    let mut start_id = None;
+    let mut end_id = None;
+    labels.iter().for_each(|kv| match kv {
+        (
+            ('A', 'A'),
+            Jumps {
+                outer_node: Some(id),
+                inner_node: None,
+            },
+        ) => {
+            start_id = Some(*id);
+        }
+        (
+            ('Z', 'Z'),
+            Jumps {
+                outer_node: Some(id),
+                inner_node: None,
+            },
+        ) => {
+            end_id = Some(*id);
+        }
+        (
+            name,
+            Jumps {
+                outer_node: Some(outer_id),
+                inner_node: Some(inner_id),
+            },
+        ) => {
+            graph.add_edge(
+                *outer_id,
+                *inner_id,
+                Edge {
+                    distance: 1,
+                    height_change: -1,
+                    label: Some(*name),
+                },
+            );
+            graph.add_edge(
+                *inner_id,
+                *outer_id,
+                Edge {
+                    distance: 1,
+                    height_change: 1,
+                    label: Some(*name),
+                },
+            );
+        }
+        _ => unreachable!("Unexpected label: {:?}", kv),
+    });
+
+    Maze {
+        start_id: start_id.unwrap(),
+        end_id: end_id.unwrap(),
+        graph,
+    }
+}
+
+fn compress_maze(original_maze: &Maze) -> Maze {
+    let original_graph = &original_maze.graph;
+    let mut compressed_graph = MazeGraph::new();
+
+    // Map NodeId from the original to the compressed graph.
+    let translate_map = {
+        let mut translate_map = HashMap::new();
+        let mut translate = |graph: &mut MazeGraph, node_id| {
+            *translate_map
+                .entry(node_id)
+                .or_insert_with(|| graph.add_node(*original_graph.get_node(node_id).unwrap()))
+        };
+
+        translate(&mut compressed_graph, original_maze.start_id);
+        translate(&mut compressed_graph, original_maze.end_id);
+        for (source_id, source_node) in original_maze.graph.nodes() {
+            for (edge, dest_id) in original_maze.graph.successors(source_id) {
+                if edge.height_change != 0 {
+                    let source = translate(&mut compressed_graph, source_id);
+                    let dest = translate(&mut compressed_graph, dest_id);
+                    compressed_graph.add_edge(source, dest, *edge);
+                }
+            }
+        }
+        translate_map
+    };
+
+    // Consider only those successors that don't traverse a portal.
+    let successors = |id: &NodeId| -> Vec<(NodeId, u32)> {
+        original_maze
+            .graph
+            .successors(*id)
+            .filter(|(edge, node_id)| edge.height_change == 0)
+            .map(|(edge, node_id)| (node_id, edge.distance))
+            .collect()
+    };
+
+    for (original_from_id, compressed_from_id) in translate_map.iter() {
+        let from_node = original_maze.graph.get_node(*original_from_id).unwrap();
+        let reachable = dijkstra_all(original_from_id, successors);
+        for (original_to_id, (_, distance)) in reachable.iter() {
+            if let Some(compressed_to_id) = translate_map.get(original_to_id) {
+                let edge = Edge {
+                    distance: *distance,
+                    height_change: 0,
+                    label: None,
+                };
+                compressed_graph.add_edge(*compressed_from_id, *compressed_to_id, edge);
+            }
+        }
+    }
+
+    Maze {
+        start_id: *translate_map.get(&original_maze.start_id).unwrap(),
+        end_id: *translate_map.get(&original_maze.end_id).unwrap(),
+        graph: compressed_graph,
+    }
+}
+
+fn shortest_path_part_one(maze: &Maze) -> u32 {
+    let start = maze.start_id;
+    let successors = |id: &NodeId| -> Vec<(NodeId, u32)> {
+        maze.graph
+            .successors(*id)
+            .map(|(edge, node_id)| (node_id, edge.distance))
+            .collect()
+    };
+    let success = |id: &NodeId| *id == maze.end_id;
+    if let Some((_path, distance)) = dijkstra(&start, successors, success) {
+        distance
+    } else {
+        unreachable!("no shortest path found");
+    }
+}
+
+fn shortest_path_part_two(maze: &Maze) -> u32 {
+    let start = (0, maze.start_id);
+    let end = (0, maze.end_id);
+    type PartTwoNode = (i32, NodeId);
+    let successors = |(z, node_id): &PartTwoNode| {
+        // println!("SUCC: {} {:?}", z, node_id);
+        let ret = maze
+            .graph
+            .successors(*node_id)
+            .filter_map(|(edge, successor_node_id)| {
+                let z = z + edge.height_change;
+                if z >= 0 {
+                    Some(((z, successor_node_id), edge.distance))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(PartTwoNode, u32)>>();
+        // for s in ret.iter() {
+        //     println!("\t\t{:?}", s);
+        // }
+        ret
+    };
+    let success = |n: &PartTwoNode| *n == end;
+    if let Some((path, distance)) = dijkstra(&start, successors, success) {
+        distance
+    } else {
+        unreachable!("No shortest path found!");
+    }
 }
 
 pub fn main() {}
@@ -235,38 +311,71 @@ pub fn main() {}
 mod test {
     use super::*;
 
+    const INPUT: &str = include_str!("../inputs/20.txt");
+    const EXAMPLE_SMALL: &str = include_str!("../examples/20.small.txt");
+    const EXAMPLE: &str = include_str!("../examples/20.txt");
+    const EXAMPLE_INTERESTING: &str = include_str!("../examples/20.interesting.txt");
+
     #[test]
     fn test_part_one_small_example() {
-        let graph = parse_maze(EXAMPLE_SMALL);
-        let distance = shortest_path_part_one(&graph);
+        let maze = parse_maze(EXAMPLE_SMALL);
+        let distance = shortest_path_part_one(&maze);
+        assert_eq!(distance, 23);
+    }
+
+    #[test]
+    fn test_part_one_small_example_compressed() {
+        let maze = compress_maze(&parse_maze(EXAMPLE_SMALL));
+        let distance = shortest_path_part_one(&maze);
         assert_eq!(distance, 23);
     }
 
     #[test]
     fn test_part_one_example() {
-        let graph = parse_maze(EXAMPLE);
-        let distance = shortest_path_part_one(&graph);
+        let maze = parse_maze(EXAMPLE);
+        let distance = shortest_path_part_one(&maze);
+        assert_eq!(distance, 58);
+    }
+
+    #[test]
+    fn test_part_one_example_compressed() {
+        let maze = compress_maze(&parse_maze(EXAMPLE));
+        let distance = shortest_path_part_one(&maze);
         assert_eq!(distance, 58);
     }
 
     #[test]
     fn test_part_one() {
-        let graph = parse_maze(INPUT);
-        let distance = shortest_path_part_one(&graph);
+        let maze = parse_maze(INPUT);
+        let distance = shortest_path_part_one(&maze);
+        assert_eq!(distance, 510);
+    }
+
+    #[test]
+    fn test_part_one_compressed() {
+        let maze = compress_maze(&parse_maze(INPUT));
+        let distance = shortest_path_part_one(&maze);
         assert_eq!(distance, 510);
     }
 
     #[test]
     fn test_part_two_small_example() {
-        let graph = parse_maze(EXAMPLE_SMALL);
-        let distance = shortest_path_part_two(&graph);
+        let maze = compress_maze(&parse_maze(EXAMPLE_SMALL));
+        let distance = shortest_path_part_two(&maze);
         assert_eq!(distance, 26);
     }
 
     #[test]
+    fn test_part_two_interesting_example() {
+        let maze = compress_maze(&parse_maze(EXAMPLE_INTERESTING));
+        let distance = shortest_path_part_two(&maze);
+        assert_eq!(distance, 396);
+    }
+
+    #[test]
     fn test_part_two() {
-        let graph = parse_maze(INPUT);
-        let distance = shortest_path_part_two(&graph);
+        let maze = compress_maze(&parse_maze(INPUT));
+        let distance = shortest_path_part_two(&maze);
         assert_eq!(distance, 5652);
     }
 }
