@@ -1,7 +1,6 @@
 use core::fmt;
-use std::collections::VecDeque;
 
-use aoc2019::intcode::{Computer, ComputerIO};
+use aoc2019::intcode::{Computer, ComputerIO, RunState};
 use aoc2019::point::Point2D;
 
 type Point = Point2D<i32>;
@@ -101,7 +100,7 @@ fn get_map(input: &str) -> (Vec<Vec<bool>>, Point, Direction) {
     let mut robot_dir = None;
 
     let mut row = Vec::new();
-    while let Some(value) = c.run(&mut VecDeque::new()) {
+    while let RunState::BlockedOnOutput(value) = c.run() {
         let value: u32 = value.try_into().expect("bad output number");
         let value = value.try_into().expect("bad output number");
         match value {
@@ -405,7 +404,7 @@ fn part_two(intcode: &str) -> i64 {
     let continuous_feed = false;
     input.push_str(&format!("{}\n", if continuous_feed { 'y' } else { 'n' }));
 
-    let mut input: VecDeque<i64> = input
+    let input: Vec<i64> = input
         .as_bytes()
         .iter()
         .map(|&e| -> i64 { e.into() })
@@ -413,7 +412,8 @@ fn part_two(intcode: &str) -> i64 {
 
     let mut c = Computer::parse(intcode);
     c.poke(0, 2);
-    while let Some(out) = c.run(&mut input) {
+    c.append_input(&input);
+    while let RunState::BlockedOnOutput(out) = c.run() {
         if (0..128).contains(&out) {
             let ch = char::from_u32(out as u32).unwrap();
             print!("{}", ch);

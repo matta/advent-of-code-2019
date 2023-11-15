@@ -1,13 +1,14 @@
-use aoc2019::intcode::Computer;
+use aoc2019::intcode::{Computer, RunState};
 use itertools::Itertools;
-use std::collections::VecDeque;
 
 fn run_computer(computer: &Computer, phase: i64, signal: i64, _trace: bool) -> i64 {
     let mut computer = computer.clone();
-    let mut input = VecDeque::new();
-    input.push_back(phase);
-    input.push_back(signal);
-    computer.run(&mut input).expect("one output")
+    computer.append_input(&[phase, signal]);
+    match computer.run() {
+        RunState::Finished => panic!("computer error: finished prematurely"),
+        RunState::BlockedOnInput => panic!("computer error: blocked on input unexpectedly"),
+        RunState::BlockedOnOutput(output) => output,
+    }
 }
 
 fn max_thruster_signal(program_text: &str, trace: bool) -> i64 {
@@ -40,42 +41,40 @@ fn max_thruster_signal2(program_text: &str) -> i64 {
 
     let permutations = vec![5, 6, 7, 8, 9].into_iter().permutations(5);
 
-    let mut best_input_signal = i64::MIN;
-
-    struct ComputerInput {
-        computer: Computer,
-        input: VecDeque<i64>,
-    }
+    let mut highest_output_signal = i64::MIN;
 
     for phase_settings in permutations {
-        let mut computers: Vec<ComputerInput> = phase_settings
+        let mut computers: Vec<Computer> = phase_settings
             .iter()
             .map(|phase| {
-                let input = VecDeque::from(vec![*phase]);
-                let computer = template_computer.clone();
-                ComputerInput { computer, input }
+                let mut computer = template_computer.clone();
+                computer.append_input(&[*phase]);
+                computer
             })
             .collect();
 
         let mut input_signal = 0;
-        let mut finished = false;
-        while !finished {
-            for c in &mut computers {
-                c.input.push_back(input_signal);
-                if let Some(output) = c.computer.run(&mut c.input) {
-                    input_signal = output;
-                } else {
-                    finished = true;
-                    if input_signal >= best_input_signal {
-                        best_input_signal = input_signal;
-                        finished = true;
-                        break;
+        'until_finished: loop {
+            for computer in computers.iter_mut() {
+                computer.append_input(&[input_signal]);
+                match computer.run() {
+                    RunState::BlockedOnOutput(output_signal) => {
+                        if output_signal > highest_output_signal {
+                            highest_output_signal = output_signal;
+                        }
+                        input_signal = output_signal;
+                    }
+                    RunState::BlockedOnInput => {
+                        panic!("computer malfunction: unexpected block on input");
+                    }
+                    RunState::Finished => {
+                        break 'until_finished;
                     }
                 }
             }
         }
     }
-    best_input_signal
+    highest_output_signal
 }
 
 fn part_one(input: &str) -> u32 {

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use aoc2019::intcode;
+use aoc2019::intcode::{self, RunState};
 use aoc2019::point::Point2D;
 
 #[derive(Debug)]
@@ -68,8 +68,8 @@ impl From<Command> for i64 {
 }
 
 fn move_droid(computer: &mut intcode::Computer, command: Command) -> Terrain {
-    let mut input: VecDeque<i64> = [command.into()].iter().copied().collect();
-    if let Some(value) = computer.run(&mut input) {
+    computer.append_input(&[command.into()]);
+    if let RunState::BlockedOnOutput(value) = computer.run() {
         return value.try_into().unwrap();
     }
     panic!("computer finished without any output")

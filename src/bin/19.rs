@@ -4,7 +4,10 @@ use std::{
     ops::Range,
 };
 
-use aoc2019::{intcode::Computer, point::Point2D};
+use aoc2019::{
+    intcode::{Computer, RunState},
+    point::Point2D,
+};
 
 const INPUT: &str = include_str!("../inputs/19.txt");
 
@@ -32,12 +35,16 @@ impl BeamProber {
             println!("engaged? {} -> {} (cached)", point, *result);
             return *result;
         }
-        let mut input: VecDeque<i64> = [point.x, point.y].into();
-        let result = match self.computer.clone().run(&mut input) {
-            Some(0) => false,
-            Some(1) => true,
-            Some(_) => unreachable!(),
-            None => unreachable!(),
+        // Uncharacteristically, this intcode computer is a one-shot.
+        // Running the program once puturbs memory and makes it unusable
+        // for subsequent runs.  Address this by cloning the computer
+        // before
+        let mut computer = self.computer.clone();
+        computer.append_input(&[point.x, point.y]);
+        let result = match computer.run() {
+            RunState::BlockedOnOutput(0) => false,
+            RunState::BlockedOnOutput(1) => true,
+            run_result => panic!("unexpected result: {:?}", run_result),
         };
         if result {
             self.hits += 1;

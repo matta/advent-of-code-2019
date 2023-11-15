@@ -1,10 +1,12 @@
-use aoc2019::intcode::Computer;
-use std::collections::VecDeque;
+use aoc2019::intcode::{Computer, RunState};
 
 fn run_program(program_text: &str, input_number: i64) -> i64 {
     let mut computer = Computer::parse(program_text);
-    let mut input = VecDeque::from(vec![input_number]);
-    computer.run(&mut input).unwrap()
+    computer.append_input(&[input_number]);
+    if let RunState::BlockedOnOutput(output) = computer.run() {
+        return output;
+    }
+    unreachable!("program never produced output");
 }
 
 fn part_one(input: &str) -> i64 {
