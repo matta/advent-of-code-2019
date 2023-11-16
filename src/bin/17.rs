@@ -100,9 +100,12 @@ fn get_map(input: &str) -> (Vec<Vec<bool>>, Point, Direction) {
     let mut robot_dir = None;
 
     let mut row = Vec::new();
-    while let RunState::BlockedOnOutput(value) = c.run() {
-        let value: u32 = value.try_into().expect("bad output number");
-        let value = value.try_into().expect("bad output number");
+    while let RunState::BlockedOnOutput = c.run() {
+        let raw_value = c.take_output().unwrap();
+        if !(0..128).contains(&raw_value) {
+            panic!("unexpected output from computer: {}", raw_value);
+        }
+        let value = raw_value as u8 as char;
         match value {
             '#' => {
                 // scaffold
@@ -413,7 +416,8 @@ fn part_two(intcode: &str) -> i64 {
     let mut c = Computer::parse(intcode);
     c.poke(0, 2);
     c.append_input(&input);
-    while let RunState::BlockedOnOutput(out) = c.run() {
+    while RunState::BlockedOnOutput == c.run() {
+        let out = c.take_output().unwrap();
         if (0..128).contains(&out) {
             let ch = char::from_u32(out as u32).unwrap();
             print!("{}", ch);

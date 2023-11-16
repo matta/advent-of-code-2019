@@ -69,8 +69,8 @@ impl From<Command> for i64 {
 
 fn move_droid(computer: &mut intcode::Computer, command: Command) -> Terrain {
     computer.append_input(&[command.into()]);
-    if let RunState::BlockedOnOutput(value) = computer.run() {
-        return value.try_into().unwrap();
+    if let RunState::BlockedOnOutput = computer.run() {
+        return computer.take_output().unwrap().try_into().unwrap();
     }
     panic!("computer finished without any output")
 }

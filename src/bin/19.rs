@@ -42,8 +42,11 @@ impl BeamProber {
         let mut computer = self.computer.clone();
         computer.append_input(&[point.x, point.y]);
         let result = match computer.run() {
-            RunState::BlockedOnOutput(0) => false,
-            RunState::BlockedOnOutput(1) => true,
+            RunState::BlockedOnOutput => match computer.take_output() {
+                Some(0) => false,
+                Some(1) => true,
+                other => panic!("unexpected output: {:?}", other),
+            },
             run_result => panic!("unexpected result: {:?}", run_result),
         };
         if result {

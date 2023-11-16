@@ -7,7 +7,7 @@ fn run_computer(computer: &Computer, phase: i64, signal: i64, _trace: bool) -> i
     match computer.run() {
         RunState::Finished => panic!("computer error: finished prematurely"),
         RunState::BlockedOnInput => panic!("computer error: blocked on input unexpectedly"),
-        RunState::BlockedOnOutput(output) => output,
+        RunState::BlockedOnOutput => computer.take_output().unwrap(),
     }
 }
 
@@ -58,7 +58,8 @@ fn max_thruster_signal2(program_text: &str) -> i64 {
             for computer in computers.iter_mut() {
                 computer.append_input(&[input_signal]);
                 match computer.run() {
-                    RunState::BlockedOnOutput(output_signal) => {
+                    RunState::BlockedOnOutput => {
+                        let output_signal = computer.take_output().unwrap();
                         if output_signal > highest_output_signal {
                             highest_output_signal = output_signal;
                         }

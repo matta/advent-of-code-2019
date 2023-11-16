@@ -3,8 +3,8 @@ use aoc2019::intcode::{Computer, RunState};
 fn run_program(program_text: &str, input_number: i64) -> i64 {
     let mut computer = Computer::parse(program_text);
     computer.append_input(&[input_number]);
-    if let RunState::BlockedOnOutput(output) = computer.run() {
-        return output;
+    if let RunState::BlockedOnOutput = computer.run() {
+        return computer.take_output().unwrap();
     }
     unreachable!("program never produced output");
 }

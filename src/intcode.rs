@@ -211,12 +211,15 @@ pub trait ComputerIO {
     fn output(&mut self, value: i64);
 }
 
+type Word = i64;
+
 #[derive(Clone)]
 pub struct Computer {
     pc: i64,
     memory: Memory,
     relative_base: i64,
     input_buffer: VecDeque<i64>,
+    output: Option<Word>,
     finished: bool,
     trace: bool,
     step: i32,
@@ -225,7 +228,7 @@ pub struct Computer {
 #[derive(Debug, PartialEq)]
 pub enum RunState {
     BlockedOnInput,
-    BlockedOnOutput(i64),
+    BlockedOnOutput,
     Finished,
 }
 
@@ -233,7 +236,7 @@ pub enum RunState {
 pub enum StepState {
     Running,
     BlockedOnInput,
-    BlockedOnOutput(i64),
+    BlockedOnOutput,
     Finished,
 }
 
@@ -244,6 +247,7 @@ impl Computer {
             memory: Memory::new(false),
             relative_base: 0,
             input_buffer: VecDeque::new(),
+            output: None,
             finished: false,
             trace: false,
             step: 0,
@@ -301,7 +305,7 @@ impl Computer {
             match self.step() {
                 StepState::Running => {}
                 StepState::BlockedOnInput => return RunState::BlockedOnInput,
-                StepState::BlockedOnOutput(value) => return RunState::BlockedOnOutput(value),
+                StepState::BlockedOnOutput => return RunState::BlockedOnOutput,
                 StepState::Finished => return RunState::Finished,
             }
         }
@@ -311,7 +315,41 @@ impl Computer {
         self.input_buffer.extend(numbers.iter());
     }
 
+    pub fn take_output(&mut self) -> Option<Word> {
+        self.output.take()
+    }
+
+    /// Steps this [`Computer`] until it is finished, blocked on input, or
+    /// produces non-ascii output. Returns the output as a String containing
+    /// ASCII characters.
+    pub fn read_ascii_string(&mut self) -> Option<String> {
+        let mut out = String::new();
+        loop {
+            match self.step() {
+                StepState::Running => {}
+                StepState::BlockedOnInput | StepState::Finished => break,
+                StepState::BlockedOnOutput => {
+                    let output = self.output.unwrap();
+                    if (0..128).contains(&output) {
+                        out.push(self.take_output().unwrap() as u8 as char);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        if !out.is_empty() {
+            Some(out)
+        } else {
+            None
+        }
+    }
+
     pub fn step(&mut self) -> StepState {
+        if self.output.is_some() {
+            return StepState::BlockedOnOutput;
+        }
+
         self.step += 1;
         if self.step > 100_000_000 {
             panic!("Too many steps");
@@ -350,8 +388,9 @@ impl Computer {
                 if self.trace {
                     println!(" output: {}", value);
                 }
+                self.output = Some(value);
                 self.pc += 2;
-                return StepState::BlockedOnOutput(value);
+                return StepState::BlockedOnOutput;
             }
             Instruction::JumpIfTrue(a, b) => {
                 let value = self.load(a);
@@ -437,7 +476,7 @@ mod tests {
         loop {
             match computer.run() {
                 RunState::BlockedOnInput => panic!("Input exhausted!"),
-                RunState::BlockedOnOutput(value) => output.push(value),
+                RunState::BlockedOnOutput => output.push(computer.take_output().unwrap()),
                 RunState::Finished => break,
             }
         }
