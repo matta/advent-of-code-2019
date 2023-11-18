@@ -325,6 +325,19 @@ impl Computer {
         self.output.take()
     }
 
+    pub fn read_output(&mut self) -> Vec<i64> {
+        let mut out = Vec::new();
+        loop {
+            match self.run() {
+                RunState::BlockedOnInput | RunState::Finished => break,
+                RunState::BlockedOnOutput => {
+                    out.push(self.output.take().unwrap());
+                }
+            }
+        }
+        out
+    }
+
     /// Steps this [`Computer`] until it is finished, blocked on input, or
     /// produces non-ascii output. Returns the output as a String containing
     /// ASCII characters.
