@@ -311,6 +311,12 @@ impl Computer {
         }
     }
 
+    pub fn append_str(&mut self, str: &str) {
+        for num in str.chars().map(|ch| ch as i64) {
+            self.append_input(&[num]);
+        }
+    }
+
     pub fn append_input(&mut self, numbers: &[i64]) {
         self.input_buffer.extend(numbers.iter());
     }
