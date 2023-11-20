@@ -14,7 +14,7 @@ impl<N, E> Default for Graph<N, E> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(NonZeroUsize);
 
 impl NodeId {
