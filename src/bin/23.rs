@@ -41,7 +41,7 @@ fn compute_part_one() -> i64 {
             }
             RunState::BlockedOnOutput => {
                 let output = nodes[i].computer.read_output();
-                assert!(output.len() % 3 == 0);
+                assert!(output.len().is_multiple_of(3));
                 for packet in output.chunks_exact(3) {
                     let (dest, x, y) = (packet[0] as usize, packet[1], packet[2]);
                     if dest == 255 {
@@ -101,7 +101,7 @@ fn compute_part_two() -> i64 {
                 }
                 RunState::BlockedOnOutput => {
                     let output = nodes[i].computer.read_output();
-                    assert!(output.len() % 3 == 0);
+                    assert!(output.len().is_multiple_of(3));
                     for packet in output.chunks_exact(3) {
                         let (dest, x, y) = (packet[0] as usize, packet[1], packet[2]);
                         if dest == 255 {

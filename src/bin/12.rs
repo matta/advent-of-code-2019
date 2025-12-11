@@ -5,7 +5,7 @@ fn parse_value(input: &str, variable: &str) -> i32 {
         None => panic!("failed to find variable in \"{}\"", input),
         Some(index) => {
             let rest = &input[index + variable.len()..];
-            match rest.split_once(|c| c == '>' || c == ',') {
+            match rest.split_once(['>', ',']) {
                 None => panic!("failed to parse integer in \"{}\" error: {}", rest, rest),
                 Some((prefix, _)) => prefix.parse::<i32>().unwrap(),
             }

@@ -72,21 +72,21 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn get_node(&self, index: NodeId) -> Option<&N> {
-        return self.nodes.get(index.index()).map(|node| &node.data);
+         self.nodes.get(index.index()).map(|node| &node.data)
     }
 
     pub fn get_edge(&self, index: EdgeId) -> Option<&E> {
-        return self.edges.get(index.index()).map(|edge| &edge.data);
+         self.edges.get(index.index()).map(|edge| &edge.data)
     }
 
-    pub fn nodes(&self) -> NodeIterator<N, E> {
+    pub fn nodes(&self) -> NodeIterator<'_, N, E> {
         NodeIterator {
             graph: self,
             current_node_index: 0,
         }
     }
 
-    pub fn successors(&self, source: NodeId) -> Successors<N, E> {
+    pub fn successors(&self, source: NodeId) -> Successors<'_, N, E> {
         let first_outgoing_edge = self.nodes[source.index()].first_outgoing_edge;
         Successors {
             graph: self,

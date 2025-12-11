@@ -3,23 +3,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use aoc2019::intcode::{self, RunState};
 use aoc2019::point::Point2D;
 
-#[derive(Debug)]
-struct Mover {
-    input: Option<i64>,
-    output: Option<i64>,
-}
-
-impl intcode::ComputerIO for Mover {
-    fn input(&mut self) -> i64 {
-        self.input.take().unwrap()
-    }
-
-    fn output(&mut self, value: i64) {
-        assert!(self.output.is_none());
-        self.output = Some(value);
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Terrain {
     Wall,

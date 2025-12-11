@@ -8,7 +8,7 @@ fn parse_digits(input: &str) -> Vec<i32> {
         .collect()
 }
 
-fn fft_phase(digits: &Vec<i32>) -> Vec<i32> {
+fn fft_phase(digits: &[i32]) -> Vec<i32> {
     let mut next = Vec::with_capacity(digits.len());
     for stride in 1..=digits.len() {
         let mut sum = 0;
@@ -153,8 +153,8 @@ mod tests {
         assert_eq!(fft_run("87654321", 1), 48540631);
         assert_eq!(fft_run("12345678", 1), 48226158);
         assert_eq!(fft_run("12345678", 2), 34040438);
-        assert_eq!(fft_run("12345678", 3), 03415518);
-        assert_eq!(fft_run("12345678", 4), 01029498);
+        assert_eq!(fft_run("12345678", 3), 3415518);
+        assert_eq!(fft_run("12345678", 4), 1029498);
         assert_eq!(fft_run("12345678", 100), 23845678);
         assert_eq!(fft_run("80871224585914546619083218645595", 1), 24706861);
         assert_eq!(fft_run("80871224585914546619083218645595", 100), 24176176);

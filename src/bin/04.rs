@@ -31,7 +31,7 @@ fn is_lexicographically_le(vec1: &Vec<u8>, vec2: &Vec<u8>) -> bool {
     }
 }
 
-fn is_valid_part_one_password(vec: &Vec<u8>) -> bool {
+fn is_valid_part_one_password(vec: &[u8]) -> bool {
     if vec.len() != 6 {
         return false;
     }
@@ -49,7 +49,7 @@ fn is_valid_part_one_password(vec: &Vec<u8>) -> bool {
     has_consecutive_digits
 }
 
-fn is_valid_part_two_password(password: &Vec<u8>) -> bool {
+fn is_valid_part_two_password(password: &[u8]) -> bool {
     if password.len() != 6 {
         return false;
     }
@@ -76,7 +76,7 @@ fn is_valid_part_two_password(password: &Vec<u8>) -> bool {
 
 pub fn compute<F>(input: &str, is_valid_password: F) -> Option<u32>
 where
-    F: Fn(&Vec<u8>) -> bool,
+    F: Fn(&[u8]) -> bool,
 {
     let (begin, end) = split_string_by_dash(input);
     let mut curr = begin;

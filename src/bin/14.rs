@@ -274,13 +274,13 @@ mod tests {
     #[test]
     fn test_part_one_example() {
         let input = include_str!("../examples/14.txt");
-        assert_eq!(part_one(&input), 2210736);
+        assert_eq!(part_one(input), 2210736);
     }
 
     #[test]
     fn test_part_two_example() {
         let input = include_str!("../examples/14.txt");
-        assert_eq!(part_two(&input), 460664);
+        assert_eq!(part_two(input), 460664);
     }
 
     #[test]

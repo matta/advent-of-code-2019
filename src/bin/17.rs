@@ -1,24 +1,9 @@
 use core::fmt;
 
-use aoc2019::intcode::{Computer, ComputerIO, RunState};
+use aoc2019::intcode::{Computer, RunState};
 use aoc2019::point::Point2D;
 
 type Point = Point2D<i32>;
-
-struct CaptureOutput {
-    output: Option<i64>,
-}
-
-impl ComputerIO for CaptureOutput {
-    fn input(&mut self) -> i64 {
-        panic!("CaptureOutput does not support input!")
-    }
-
-    fn output(&mut self, value: i64) {
-        assert!(self.output.is_none());
-        self.output = Some(value);
-    }
-}
 
 fn is_scaffold(scaffold: &[Vec<bool>], pos: Point) -> bool {
     if pos.x < 0 || pos.y < 0 {
