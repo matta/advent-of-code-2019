@@ -72,11 +72,11 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn get_node(&self, index: NodeId) -> Option<&N> {
-         self.nodes.get(index.index()).map(|node| &node.data)
+        self.nodes.get(index.index()).map(|node| &node.data)
     }
 
     pub fn get_edge(&self, index: EdgeId) -> Option<&E> {
-         self.edges.get(index.index()).map(|edge| &edge.data)
+        self.edges.get(index.index()).map(|edge| &edge.data)
     }
 
     pub fn nodes(&self) -> NodeIterator<'_, N, E> {
