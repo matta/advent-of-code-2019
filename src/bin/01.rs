@@ -7,11 +7,11 @@ pub(crate) fn parse_input(input: &str) -> Vec<u32> {
 
 fn part_one(input: &str) -> u32 {
     let input = parse_input(input);
-    let sum = input
+    
+    input
         .iter()
         .map(|&num| if num >= 9 { num / 3 - 2 } else { 0 })
-        .sum();
-    sum
+        .sum()
 }
 
 fn calculate_fuel(mass: u32) -> u32 {
@@ -29,8 +29,8 @@ fn calculate_fuel(mass: u32) -> u32 {
 
 fn part_two(input: &str) -> u32 {
     let input = parse_input(input);
-    let sum = input.iter().map(|&num| calculate_fuel(num)).sum();
-    sum
+    
+    input.iter().map(|&num| calculate_fuel(num)).sum()
 }
 
 fn main() {

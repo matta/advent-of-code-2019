@@ -186,16 +186,14 @@ impl RecursiveEris {
         let mut next = self.clone();
 
         // Add an empty level above and below the current levels.
-        if let Some((level, tile)) = next.levels.first_key_value() {
-            if *tile != Tile::new() {
+        if let Some((level, tile)) = next.levels.first_key_value()
+            && *tile != Tile::new() {
                 next.levels.insert(level - 1, Tile::new());
             }
-        }
-        if let Some((level, tile)) = next.levels.last_key_value() {
-            if *tile != Tile::new() {
+        if let Some((level, tile)) = next.levels.last_key_value()
+            && *tile != Tile::new() {
                 next.levels.insert(level + 1, Tile::new());
             }
-        }
 
         let keys: Vec<i32> = next.levels.keys().copied().collect();
         for z in keys.into_iter() {

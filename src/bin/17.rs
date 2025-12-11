@@ -9,11 +9,10 @@ fn is_scaffold(scaffold: &[Vec<bool>], pos: Point) -> bool {
     if pos.x < 0 || pos.y < 0 {
         return false;
     }
-    if let Some(row) = scaffold.get(pos.y as usize) {
-        if let Some(bit) = row.get(pos.x as usize) {
+    if let Some(row) = scaffold.get(pos.y as usize)
+        && let Some(bit) = row.get(pos.x as usize) {
             return *bit;
         }
-    }
     false
 }
 

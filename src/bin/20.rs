@@ -266,8 +266,7 @@ fn shortest_path_part_two(maze: &Maze) -> u32 {
     let end = (0, maze.end_id);
     type PartTwoNode = (i32, NodeId);
     let successors = |(z, node_id): &PartTwoNode| {
-        // println!("SUCC: {} {:?}", z, node_id);
-        let ret = maze
+        maze
             .graph
             .successors(*node_id)
             .filter_map(|(edge, successor_node_id)| {
@@ -278,11 +277,7 @@ fn shortest_path_part_two(maze: &Maze) -> u32 {
                     None
                 }
             })
-            .collect::<Vec<(PartTwoNode, u32)>>();
-        // for s in ret.iter() {
-        //     println!("\t\t{:?}", s);
-        // }
-        ret
+            .collect::<Vec<(PartTwoNode, u32)>>()
     };
     let success = |n: &PartTwoNode| *n == end;
     if let Some((_path, distance)) = dijkstra(&start, successors, success) {
