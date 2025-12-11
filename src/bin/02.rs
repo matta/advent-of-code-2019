@@ -157,5 +157,4 @@ mod tests {
     fn test_main() {
         main();
     }
-
 }

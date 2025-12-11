@@ -98,7 +98,6 @@ pub fn part_two(input: &str) -> u32 {
     compute(input, is_valid_part_two_password).unwrap()
 }
 
-
 fn main() {
     let input = include_str!("../inputs/04.txt").trim();
     let one = part_one(input);
