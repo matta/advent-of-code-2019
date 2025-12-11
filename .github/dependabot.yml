@@ -5,11 +5,17 @@
 
 version: 2
 updates:
-  - package-ecosystem: "cargo"
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "semiannually"
-    cooldown:
-      semver-major-days: 30
-      semver-minor-days: 7
-      semver-patch-days: 3
+    - package-ecosystem: "cargo"
+      directory: "/" # Location of package manifests
+      schedule:
+          interval: "semiannually"
+      cooldown:
+          semver-major-days: 30
+          semver-minor-days: 7
+          semver-patch-days: 3
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "semiannually"
+      cooldown:
+          default-days: 30
