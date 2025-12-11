@@ -67,13 +67,16 @@ impl BeamProber {
 }
 
 fn part_one(prober: &mut BeamProber) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
 
     prober.engaged(&Point::default());
 
     let mut queue = VecDeque::new();
     while queue.is_empty() {
-        let point = Point::new(rng.gen_range(PART_ONE_RANGE), rng.gen_range(PART_ONE_RANGE));
+        let point = Point::new(
+            rng.random_range(PART_ONE_RANGE),
+            rng.random_range(PART_ONE_RANGE),
+        );
         if !prober.seen(&point) && prober.engaged(&point) {
             queue.push_back(point);
         }
