@@ -1,7 +1,11 @@
 use std::{cmp::Ordering, fmt};
 
 use aoc2019::intcode::{Computer, RunState};
-use rand::{distributions::Standard, prelude::Distribution, rngs::ThreadRng, Rng};
+use rand::{
+    distr::{Distribution, StandardUniform},
+    rngs::ThreadRng,
+    Rng,
+};
 
 const INTCODE_PROGRAM: &str = include_str!("../inputs/21.txt");
 
@@ -20,9 +24,9 @@ enum ReadableRegister {
     I,
 }
 
-impl Distribution<ReadableRegister> for Standard {
+impl Distribution<ReadableRegister> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ReadableRegister {
-        match rng.gen_range(0..11) {
+        match rng.random_range(0..11) {
             0 => ReadableRegister::T,
             1 => ReadableRegister::J,
             2 => ReadableRegister::A,
@@ -74,9 +78,9 @@ impl fmt::Display for WritableRegister {
     }
 }
 
-impl Distribution<WritableRegister> for Standard {
+impl Distribution<WritableRegister> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> WritableRegister {
-        match rng.gen_range(0..2) {
+        match rng.random_range(0..2) {
             0 => WritableRegister::T,
             1 => WritableRegister::J,
             _ => unreachable!(),
@@ -102,9 +106,9 @@ impl fmt::Display for Opcode {
     }
 }
 
-impl Distribution<Opcode> for Standard {
+impl Distribution<Opcode> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Opcode {
-        match rng.gen_range(0..2) {
+        match rng.random_range(0..2) {
             0 => Opcode::Not,
             1 => Opcode::And,
             2 => Opcode::Or,
@@ -126,12 +130,12 @@ impl fmt::Display for Instruction {
     }
 }
 
-impl Distribution<Instruction> for Standard {
+impl Distribution<Instruction> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Instruction {
         Instruction {
-            op: rng.gen(),
-            read: rng.gen(),
-            write: rng.gen(),
+            op: rng.random(),
+            read: rng.random(),
+            write: rng.random(),
         }
     }
 }
@@ -151,12 +155,12 @@ impl fmt::Display for Script {
     }
 }
 
-impl Distribution<Script> for Standard {
+impl Distribution<Script> for StandardUniform {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Script {
         Script {
-            instructions: (0..(rng.gen_range(5..10)))
+            instructions: (0..(rng.random_range(5..10)))
                 .map(|_| {
-                    let inst: Instruction = rng.gen();
+                    let inst: Instruction = rng.random();
                     inst
                 })
                 .collect(),
@@ -304,20 +308,20 @@ fn evaluate(cases: &[Vec<bool>], speed: Speed, script: &mut EvolvingScript) {
 }
 
 fn mutate(script: &mut EvolvingScript) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let instructions = &mut script.script.instructions;
     loop {
-        match rng.gen_range(0..=3) {
+        match rng.random_range(0..=3) {
             0 => {
                 let len = instructions.len();
                 let max_inserts = SCRIPT_INSTRUCTIONS_LEN_MAX - len;
                 if max_inserts >= 2 {
-                    let inserts = rng.gen_range(2..=max_inserts);
-                    let pos = rng.gen_range(0..=len);
+                    let inserts = rng.random_range(2..=max_inserts);
+                    let pos = rng.random_range(0..=len);
                     instructions.splice(
                         pos..pos,
                         (0..inserts).map(|_| {
-                            let inst: Instruction = rng.gen();
+                            let inst: Instruction = rng.random();
                             inst
                         }),
                     );
@@ -327,14 +331,14 @@ fn mutate(script: &mut EvolvingScript) {
             1 => {
                 // Completely replace one instruction with a random one.
                 let len = instructions.len();
-                instructions[rng.gen_range(0..len)] = rng.gen();
+                instructions[rng.random_range(0..len)] = rng.random();
                 break;
             }
             2 => {
                 // Remove a random instruction.
                 let len = instructions.len();
                 if len > 1 {
-                    instructions.remove(rng.gen_range(0..len));
+                    instructions.remove(rng.random_range(0..len));
                     break;
                 }
             }
@@ -342,7 +346,7 @@ fn mutate(script: &mut EvolvingScript) {
                 // Add an instruction at a random position.
                 let len = instructions.len();
                 if len < SCRIPT_INSTRUCTIONS_LEN_MAX {
-                    instructions.insert(rng.gen_range(0..=len), rng.gen());
+                    instructions.insert(rng.random_range(0..=len), rng.random());
                     break;
                 }
             }
@@ -357,10 +361,10 @@ fn generate(cases: &[Vec<bool>]) {
 
     let mut population: Vec<EvolvingScript> = Vec::new();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let random_script = |rng: &mut ThreadRng| {
-        let script: Script = rng.gen();
+        let script: Script = rng.random();
         script
     };
 
